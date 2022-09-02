@@ -2,7 +2,9 @@ from enum import Enum, unique
 from math import sqrt, log, exp
 from datetime import date, timedelta
 
+import locale
 import pandas as pd
+from pandas.tseries.offsets import BDay
 from scipy.stats import norm
 
 from volatility import volatility_trackers
@@ -75,7 +77,7 @@ class OptionsPricer:
                 self.divs = None
 
     def __str__(self):
-        return '%s %s %s option with strike %s and maturity %s, price: %.2f, \u03c3: %.2f, '\
+        return '%s %s %s option with strike %s and maturity %s, price: %.2f, \u03c3: %.4f, '\
                '\u0394: %.3f, \u0393: %.3f, \u03Bd: %.3f'\
               % (self.ticker, self.opt_type, 'call' if self.is_call else 'put',
                  locale.currency(self.strike, grouping=True), self.maturity_date.strftime('%Y-%m-%d'),
@@ -312,9 +314,12 @@ class BinomialTreePricer(OptionsPricer):
 
     def get_vega(self):
         delta_sigma = 1e-4 # 1 bp
-        return  (BinomialTreePricer(self.maturity_date, self.annual_volatility + delta_sigma, self.strike,
+        return (BinomialTreePricer(self.maturity_date, self.annual_volatility + delta_sigma, self.strike,
                                    self.riskless_yield_curve, self.s0, self.is_call, self.opt_type, self.ticker,
                                    self.q, self.divs, self.steps).get_price() - self.get_price()) / delta_sigma
+
+    def get_theta(self):
+        return (self.tree[2][1][1] - self.tree[0][0][1]) / (2 * self.delta_t)
 
 
 if __name__ == "__main__":
@@ -324,7 +329,6 @@ if __name__ == "__main__":
 
     from dateutil.relativedelta import relativedelta
     import pandas_datareader.data as web
-    from pandas.tseries.offsets import BDay
     import numpy as np
 
     from volatility import parameter_estimators
