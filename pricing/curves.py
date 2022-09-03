@@ -132,6 +132,10 @@ class YieldCurve:
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
         assert self.timestamps[0] <= timestamp <= self.timestamps[-1]
+
+        # An alternative less accurate but simpler way of calculating the same
+        # return (pd.to_datetime(adjusted_datetime) - pd.to_datetime(self.date)) / np.timedelta64(1, 'Y')
+
         num_days = (adjusted_datetime.date() - self.date).days
         num_leap_years = YieldCurve.get_num_leap_years(self.date.year, adjusted_datetime.date().year)
         leap_years_add_on = num_leap_years / (adjusted_datetime.date().year - self.date.year) \

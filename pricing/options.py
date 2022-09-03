@@ -40,8 +40,8 @@ class OptionsPricer:
         :param is_call: indicates if we are pricing a call or a put option
         :param opt_type: the type of option -- European or American
         :param ticker: the ticker symbol of the underlying asset (optional)
-        :param q: the yield on the underlying asset provides (if any, expressed as annual yield
-                                                              with continuous compounding)
+        :param q: the yield the underlying asset provides (if any, expressed as annual yield
+                                                           with continuous compounding)
         :param dividends: if the asset pays dividends during the specified maturity period, specifies a pandas.Series
                   object indexed by DatetimeIndex specifying expected dividend payments. The dates must be
                   based on the ex-dividend date for the asset. NB: if this parameter is not None,
@@ -80,7 +80,7 @@ class OptionsPricer:
         return '%s %s %s option with strike %s and maturity %s, price: %.2f, \u03c3: %.4f, '\
                '\u0394: %.3f, \u0393: %.3f, \u03Bd: %.3f'\
               % (self.ticker, self.opt_type, 'call' if self.is_call else 'put',
-                 locale.currency(self.strike, grouping=True), self.maturity_date.strftime('%Y-%m-%d'),
+                 self.strike, self.maturity_date.strftime('%Y-%m-%d'),
                  self.get_price(), self.annual_volatility, self.get_delta(), self.get_gamma(), self.get_vega())
 
     def get_npv_dividends(self, t=0.):
@@ -127,6 +127,12 @@ class OptionsPricer:
 
 
 class BlackScholesMertonPricer(OptionsPricer):
+    """
+    The Black-Scholes-Merton model pricer. It can be used to price European options, including on stock that pays
+    dividends. It can also be used to price American call options (even those paying dividends) doing it is based
+    on the fact that it is never optimal to exercise an American call option prematurely except on days immediately
+    preceeding ex-dividend days for the stock.
+    """
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
                  opt_type=OptionType.EUROPEAN, ticker=OptionsPricer.UNSPECIFIED_TICKER, q=0., dividends=None):
@@ -142,8 +148,8 @@ class BlackScholesMertonPricer(OptionsPricer):
         :param is_call: indicates if we are pricing a call or a put option
         :param opt_type: the type of option -- European or American
         :param ticker: the ticker symbol of the underlying asset (optional)
-        :param q: the yield on the underlying asset provides (if any, expressed as annual yield
-                                                              with continuous compounding)
+        :param q: the yield the underlying asset provides (if any, expressed as annual yield
+                                                           with continuous compounding)
         :param dividends: if the asset pays dividends during the specified maturity period, specifies a pandas.Series
                           object indexed by DatetimeIndex specifying expected dividend payments. The dates must be
                           based on the ex-dividend date for the asset. NB: if this parameter is not None,
@@ -164,7 +170,7 @@ class BlackScholesMertonPricer(OptionsPricer):
         """
         Constructor helper method to initialize additional fields
         """
-        adjusted_s0 = self.s0 - self.get_npv_dividends()
+        adjusted_s0 = self.s0 - self.get_npv_dividends() if self.q == 0. else self.s0
         vol_to_maturity = self.annual_volatility * sqrt(self.T)
         d1 = (log(adjusted_s0 / self.strike) + (self.r - self.q + self.annual_volatility ** 2 / 2.) * self.T)\
              / vol_to_maturity
@@ -232,6 +238,10 @@ class BlackScholesMertonPricer(OptionsPricer):
 
 
 class BinomialTreePricer(OptionsPricer):
+    """
+    The Binomial Tree model pricer. It can be used to price any European and American options, including on stock
+    that pays dividends or where a dividend yield estimate is known.
+    """
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
                  opt_type=OptionType.EUROPEAN, ticker=OptionsPricer.UNSPECIFIED_TICKER, q=0., dividends=None,
@@ -248,6 +258,8 @@ class BinomialTreePricer(OptionsPricer):
         :param is_call: indicates if we are pricing a call or a put option
         :param opt_type: the type of option -- European or American
         :param ticker: the ticker symbol of the underlying asset (optional)
+        :param q: the yield the underlying asset provides (if any, expressed as annual yield
+                                                           with continuous compounding)
         :param dividends: if the asset pays dividends during the specified maturity period, specifies a pandas.Series
                           object indexed by DatetimeIndex specifying expected dividend payments
         :param num_steps_binomial_tree: number of steps in the binomial tree that will be constructed, must be >=2,
@@ -273,7 +285,7 @@ class BinomialTreePricer(OptionsPricer):
         # Constructing the binomial tree
 
         # First initializing the prices of the underlying assets, striping out the NPV of all dividends (if any)
-        adjusted_s0 = self.s0 - self.get_npv_dividends()
+        adjusted_s0 = self.s0 - self.get_npv_dividends() if self.q == 0. else self.s0
         self.tree.append([[adjusted_s0, 0.]])
         for i in range(1, self.steps+1):
             # Constructing tree nodes for level i
@@ -446,6 +458,34 @@ if __name__ == "__main__":
         put_pricer = BinomialTreePricer(maturity_date, impl_vol, strike, curve, cur_price, is_call=False,
                                         ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
         print(put_pricer)
+
+        TICKER = '^GSPC'
+
+        # I'll use price changes since 1st Jan 2018 to estimate GARCH(1, 1) ω, α, and β parameters
+        data = web.get_data_yahoo(TICKER, start, end)
+        asset_prices = data['Adj Close']
+
+        vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
+        print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
+              % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
+
+        vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
+                                                                 vol_estimator.beta, asset_prices)
+
+        # Let's get volatility forecast for June 30th 2023 options
+        maturity_date = date(2023, month=6, day=30)
+        vol = vol_tracker.get_annual_term_volatility_forecast(curve.to_years(maturity_date))
+        print('Volatility of %s for term %.4f years: %.5f' % (TICKER, curve.to_years(maturity_date), vol))
+
+        strike = 3900.
+
+        # Expected S&P 500 dividend yield
+        q = .0163
+
+        cur_price = asset_prices[-1]
+        pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
+                                          ticker=TICKER, q=q)
+        print(pricer)
 
     # except (IndexError, ValueError) as ex:
     #     print(

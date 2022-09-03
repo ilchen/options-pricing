@@ -29,15 +29,24 @@ python3 -m pip install -r requirements.txt
 ```
 
 ## How to get started
-The best way to learn how to use the classes from this repository is to run the example Jupyter notebooks. I crated
-one each for pricing different kinds of options. To use the notebooks, please proceed as follows:
+The best way to learn how to use the classes from this repository is to run the example Jupyter notebooks. I created
+one each for pricing different kinds of options and put ample comments and explanations to them. To use the notebooks,
+please proceed as follows:
 
 After you clone the repo and `cd` into its directory, please run one of the below commands depending on which notebook you are interested in:
+
+### Pricing equity options on a cash dividend paying stock
 ```commandline
 jupyter notebook equity-options-pricing-example.ipynb
 ```
+A full run of this notebook can be seen [here for Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-options-pricing-example.ipynb).
 
-A full run of this notebook can be seen [here for Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-options-pricing-exmple.ipynb).
+### Pricing equity index options
+```commandline
+jupyter notebook equity-index-options-pricing-example.ipynb
+```
+A full run of this notebook can be seen [here for Equity Index Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-index-options-pricing-example.ipynb).
+
 
 You can also run these notebooks in Google cloud. This way you don't need to install anything locally. This takes just a few seconds:
 1. Go to [Google Colaboratory](https://colab.research.google.com/notebooks/intro.ipynb#recent=true) in your browser
