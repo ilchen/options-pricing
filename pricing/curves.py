@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from scipy.interpolate import InterpolatedUnivariateSpline
 from pandas.tseries.offsets import BDay
@@ -40,8 +41,9 @@ class YieldCurve:
         """
         Constructs a new curve based on specified maturities and rates.
         :param date: a datetime.date object relative to which the maturities are to be applied
-        :param maturities: a list of relativedelta instances in increasing order
-        :param rates: a list of corresponding yields in percent per annum
+        :param maturities: a list of relativedelta instances in increasing order or
+                           a list of timestamps represented as floats
+        :param rates: a list or a numpy.ndarray of corresponding yields in percent per annum
         :param k: degree of the smoothing spline for interpolation
         :param align_on_business_days: designates if 'date' and other date values need to be aligned to a business
                                        date
@@ -51,8 +53,11 @@ class YieldCurve:
         assert compounding_freq >= 0 and isinstance(compounding_freq, int)
 
         dt = datetime.combine(date, time())
-        self.timestamps = [(dt + maturity + (BDay(0) if align_on_business_days else timedelta())).timestamp()
-                           for maturity in maturities]
+        if isinstance(maturities[0], float):
+            self.timestamps = list(maturities)
+        else:
+            self.timestamps = [(dt + maturity + (BDay(0) if align_on_business_days else timedelta())).timestamp()
+                               for maturity in maturities]
 
         # Verify it is monotonically increasing
         assert all(self.timestamps[i] <= self.timestamps[i + 1] for i in range(len(maturities) - 1))
@@ -208,6 +213,19 @@ class YieldCurve:
                 num_years_index = ret.index / (365. + leap_years_add_on)
                 ret = ret.set_axis(num_years_index)
         return ret
+
+    def parallel_shift(self, basis_points):
+        """
+        Returns a new YieldCurve object initialized analogously to this curve except that all yields are shifted
+        by the specified amount of basis points.
+
+        :param basis_points: the number of basis points to add to the yields of this curve
+        :return: a new YieldCurve object
+        """
+        rates = np.array([self.ppoly(ts).tolist() for ts in self.timestamps]) + basis_points * 1e-4
+        spline_degree = self.ppoly.__dict__['_data'][5]
+        return YieldCurve(self.date, self.timestamps, rates, spline_degree,
+                          align_on_business_days=self.align_on_bd, compounding_freq=self.comp_freq)
 
     @staticmethod
     def is_leap_year(year):

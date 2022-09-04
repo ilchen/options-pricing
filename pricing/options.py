@@ -2,7 +2,6 @@ from enum import Enum, unique
 from math import sqrt, log, exp
 from datetime import date, timedelta
 
-import locale
 import pandas as pd
 from pandas.tseries.offsets import BDay
 from scipy.stats import norm
@@ -333,6 +332,13 @@ class BinomialTreePricer(OptionsPricer):
     def get_theta(self):
         return (self.tree[2][1][1] - self.tree[0][0][1]) / (2 * self.delta_t)
 
+    def get_rho(self):
+        num_bp = 1
+        return (BinomialTreePricer(self.maturity_date, self.annual_volatility, self.strike,
+                                   self.riskless_yield_curve.parallel_shift(num_bp), self.s0, self.is_call,
+                                   self.opt_type, self.ticker, self.q, self.divs, self.steps).get_price()
+                - self.get_price()) / (num_bp * 1e-4)
+
 
 if __name__ == "__main__":
     import sys
@@ -388,6 +394,10 @@ if __name__ == "__main__":
         curve = curves.YieldCurve(cur_date, offsets, data[cur_date_curve:cur_date_curve + BDay()].to_numpy()[0, :],
                                   compounding_freq=2)
 
+        cp = curve.get_curve_points(12)
+        cps = curve.parallel_shift(1).get_curve_points(12)
+
+
         # Obtaining a volatility estimate for maturity
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         #
@@ -439,12 +449,15 @@ if __name__ == "__main__":
         pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
                                           ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
         print(pricer)
+        print('\u03c1: %.3f' % pricer.get_rho())
         pricer = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price,
                                     ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
         print(pricer)
+        print('\u03c1: %.3f' % pricer.get_rho())
         pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
                                         ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
         print(pricer_put)
+        print('\u03c1: %.3f' % pricer.get_rho())
 
         impl_vol = .3084
         print('\nPricing with an implied volatility of %.2f' % impl_vol)
@@ -465,12 +478,15 @@ if __name__ == "__main__":
         data = web.get_data_yahoo(TICKER, start, end)
         asset_prices = data['Adj Close']
 
-        vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
-        print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-              % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
-
-        vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
-                                                                 vol_estimator.beta, asset_prices)
+        # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
+        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
+        #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
+        # Optimal values for GARCH(1, 1) parameters:
+        # 	ω=0.000005476805, α=0.20899, β=0.76364
+        #
+        # vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
+        #                                                          vol_estimator.beta, asset_prices)
+        vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000005476805, .20899, .76364, asset_prices)
 
         # Let's get volatility forecast for June 30th 2023 options
         maturity_date = date(2023, month=6, day=30)
