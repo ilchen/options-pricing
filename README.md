@@ -15,9 +15,10 @@ The repository contains the following packages :
   discount factors.
 * `pricing.options` &mdash; contains classes implementing a Black-Scholes-Merton and Binomial-Tree pricers.
 
-I created this repository with a view of being able to utilize freely available data from [FRED](https://fred.stlouisfed.org)
-and [Yahoo-Finance](https://finance.yahoo.com). [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html)
-provides an excellent way of tapping into these datasets.
+I created this repository with a view of being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
+[Eurostat](https://ec.europa.eu/eurostat/web/main/data/database), and [Yahoo-Finance](https://finance.yahoo.com).
+Since [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html)
+provides an excellent way of tapping into these datasets, I opted for using it.
 
 ## Requirements
 You'll need python3 and pip. `brew install python` will do if you are on MacOS. You can even forgo installing anything
@@ -36,10 +37,17 @@ please proceed as follows:
 After you clone the repo and `cd` into its directory, please run one of the below commands depending on which notebook you are interested in:
 
 ### Pricing equity options on a cash dividend paying stock
+I prepared one example notebook for pricing an option in USD on a US stock:
 ```commandline
 jupyter notebook equity-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-options-pricing-example.ipynb).
+
+And another example notebook for pricing an option in Euro on a stock priced in Euro:
+```commandline
+jupyter notebook euro-equity-options-pricing-example.ipynb
+```
+A full run of this notebook can be seen [here for Euro Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/euro-equity-options-pricing-example.ipynb).
 
 ### Pricing equity index options
 ```commandline
