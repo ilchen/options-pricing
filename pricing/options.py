@@ -94,9 +94,10 @@ class OptionsPricer:
         if self.divs is not None:
             future_datetime = self.riskless_yield_curve.to_datetime(t)
             for d in self.divs.index:
-                if not isinstance(d, date):
-                    d = d.date()
-                if d > self.maturity_date or d <= future_datetime:
+                index_as_date = d
+                if type(d) is not date:
+                    index_as_date = d.date()
+                if index_as_date > self.maturity_date or index_as_date <= future_datetime.date():
                     continue
                 dcf = self.riskless_yield_curve.get_discount_factor_for_maturity_date(d) if t == 0.\
                     else self.riskless_yield_curve.get_forward_discount_factor_for_maturity_date(future_datetime, d)
