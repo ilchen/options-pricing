@@ -112,18 +112,21 @@ class GARCHParameterEstimator(ParameterEstimator):
 
         # print('Starting with objective function value of:', -objective_func(x0 * self.GARCH_PARAM_MULTIPLIERS))
 
-        # omega [0; np.inf], alpha[0;1], beta[0;1]
-        bounds = Bounds([0., 0., 0.], np.array([np.inf, 1., 1.]) * self.GARCH_PARAM_MULTIPLIERS)
+        # omega [0;1], alpha[0;1], beta[0;1]
+        bounds = Bounds([0., 0., 0.], np.array([1., 1., 1.]) * self.GARCH_PARAM_MULTIPLIERS)
 
         # 0*omega + alpha + beta <= 1
         constr = LinearConstraint([[0, 1 / self.GARCH_PARAM_MULTIPLIERS[1], 1 / self.GARCH_PARAM_MULTIPLIERS[2]]],
                                   [0], [1])
 
-        constr2 = [{'type': 'ineq', 'fun': lambda x:
-                    1 - x[1] / self.GARCH_PARAM_MULTIPLIERS[1] - x[2] / self.GARCH_PARAM_MULTIPLIERS[2]}]
+        # Can pass a Hessian matrix of zero as the objective function is linear with respect to ω, α, and β.
+        # However, the optimization process then takes 3 times as long, but removes the warning.
+        # Better to suppress it altogether.
+        import warnings
+        warnings.filterwarnings('ignore', message='delta_grad == 0.0. Check if the approximated function is linear.')
 
         res = minimize(objective_func, x0 * self.GARCH_PARAM_MULTIPLIERS, method='trust-constr',
-                       bounds=bounds, constraints=constr)  # , options={'maxiter': 150, 'verbose': 2})
+                       bounds=bounds, constraints=constr)#, hess=lambda x: np.zeros((len(x0), len(x0))))
         if res.success:
             ω, α, β = res.x / self.GARCH_PARAM_MULTIPLIERS
             print('Objective function: %.5f after %d iterations' % (-res.fun, res.nit))
