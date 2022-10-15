@@ -43,7 +43,8 @@ class YieldCurve:
         :param date: a datetime.date object relative to which the maturities are to be applied
         :param maturities: a list of relativedelta instances in increasing order or
                            a list of timestamps represented as floats
-        :param rates: a list or a numpy.ndarray of corresponding yields in percent per annum
+        :param rates: a list or a numpy.ndarray of corresponding yields in percent per annum, points with
+                      numpy.nan values are discarded
         :param k: degree of the smoothing spline for interpolation
         :param align_on_business_days: designates if 'date' and other date values need to be aligned to a business
                                        date
@@ -61,7 +62,10 @@ class YieldCurve:
 
         # Verify it is monotonically increasing
         assert all(self.timestamps[i] <= self.timestamps[i + 1] for i in range(len(maturities) - 1))
-        self.ppoly = InterpolatedUnivariateSpline(self.timestamps, rates, k=k)
+
+        # Discard numpy.nan datapoints
+        mask = np.logical_not(np.isnan(rates))
+        self.ppoly = InterpolatedUnivariateSpline(np.array(self.timestamps)[mask], np.array(rates)[mask], k=k)
         self.date = (date + BDay(0)).date() if align_on_business_days else date
         self.align_on_bd = align_on_business_days
         self.comp_freq = compounding_freq
@@ -110,7 +114,7 @@ class YieldCurve:
         :returns: a discount factor such that any cashflow on date 'date' should be multiplied
                   by value returned to obtain its NPV
         """
-        adjusted_datetime = datetime.combine(dt, time()) if isinstance(dt, date) else dt
+        adjusted_datetime = datetime.combine(dt, time()) if type(dt) is date else dt
         timestamp = adjusted_datetime.timestamp()
         forward_timestamp = forward_datetime.timestamp()
         assert self.timestamps[0] <= timestamp <= self.timestamps[-1]\
@@ -118,8 +122,8 @@ class YieldCurve:
                and forward_timestamp < timestamp
         ytm = self.ppoly(timestamp).tolist()
         ytf = self.ppoly(forward_timestamp).tolist()
-        num_years_to_maturity = YieldCurve.year_difference(self.date, adjusted_datetime.date())
-        num_years_to_forward = YieldCurve.year_difference(self.date, forward_datetime.date())
+        num_years_to_maturity = YieldCurve.year_difference(self.date, adjusted_datetime)
+        num_years_to_forward = YieldCurve.year_difference(self.date, forward_datetime)
         yfw = (ytm * num_years_to_maturity - ytf * num_years_to_forward)\
               / (num_years_to_maturity - num_years_to_forward)
         yfw = self.to_continuous_compounding(yfw)
@@ -239,6 +243,9 @@ class YieldCurve:
     @staticmethod
     def year_difference(date1, date2):
         assert isinstance(date1, (date, datetime)) and isinstance(date2, (date, datetime))
+        # Normalize to datetime
+        date1 = date1 if isinstance(date1, datetime) else datetime.combine(date1, time())
+        date2 = date2 if isinstance(date2, datetime) else datetime.combine(date2, time())
         time_delta = date2 - date1
         num_leap_years = YieldCurve.get_num_leap_years(date1.year, date2.year)
         leap_years_add_on = 0 if num_leap_years == 0 else num_leap_years / (date2.year - date1.year)

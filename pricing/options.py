@@ -289,7 +289,7 @@ class BinomialTreePricer(OptionsPricer):
         self.tree.append([[adjusted_s0, 0.]])
         for i in range(1, self.steps+1):
             # Constructing tree nodes for level i
-            #print('Level %d corresponding to %s' % (i, self.riskless_yield_curve.to_datetime(i*self.delta_t)))
+            # print('Level %d corresponding to %s' % (i, self.riskless_yield_curve.to_datetime(i*self.delta_t)))
             level_nodes = [[self.tree[i - 1][0][0] * self.u, 0.]]
             for j in range(len(self.tree[i-1])):
                 level_nodes.append([self.tree[i-1][j][0] * self.d, 0.])
