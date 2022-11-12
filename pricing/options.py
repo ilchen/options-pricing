@@ -71,7 +71,7 @@ class OptionsPricer:
             assert isinstance(dividends.index, (pd.core.indexes.datetimes.DatetimeIndex, pd.core.indexes.base.Index))\
                 and dividends.index.is_monotonic_increasing and q == 0.
             # Get rid of dividends not relevant for valuing this option
-            self.divs = dividends.truncate(after=self.maturity_date).truncate(before=self.riskless_yield_curve.date)
+            self.divs = dividends.truncate(after=self.maturity_date).truncate(before=self.riskless_yield_curve.date+BDay())
             if self.divs.empty:
                 self.divs = None
 
@@ -366,12 +366,12 @@ if __name__ == "__main__":
         cur_price = asset_prices[-1]
         print('S0 of %s on %s:\t%.5f' % (TICKER, date.strftime(cur_date, '%Y-%m-%d'), cur_price))
 
-        maturity_date = date(2022, month=10, day=21)
+        maturity_date = date(2023, month=1, day=20)
 
         # Constructing the riskless yield curve based on the current fed funds rate and treasury yields
         data = web.get_data_fred(
             ['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30'],
-            end - BDay(2), end)
+            end - BDay(3), end)
         data.dropna(inplace=True)
 
         cur_date_curve = data.index[-1].date()
@@ -398,7 +398,6 @@ if __name__ == "__main__":
         cp = curve.get_curve_points(12)
         cps = curve.parallel_shift(1).get_curve_points(12)
 
-
         # Obtaining a volatility estimate for maturity
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         #
@@ -407,7 +406,7 @@ if __name__ == "__main__":
         #
         # vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
         #                                                          vol_estimator.beta, asset_prices)
-        vol_tracker = volatility_trackers.GARCHVolatilityTracker(0.000021656157, 0.12512, 0.82521, asset_prices)
+        vol_tracker = volatility_trackers.GARCHVolatilityTracker(0.000020633369, 0.12462, 0.83220, asset_prices)
 
         # vol_estimator = parameter_estimators.EWMAParameterEstimator(asset_prices)
         # vol_tracker = volatility_trackers.EWMAVolatilityTracker(vol_estimator.lamda, asset_prices)
@@ -420,8 +419,8 @@ if __name__ == "__main__":
 
         strike = 180.
 
-        # An approximate rule for Apple's ex-dividend dates
-        idx = (pd.date_range(date(2022, 8, 8), freq='WOM-2MON', periods=20)[::3] - BDay(1))
+        # An approximate rule for Apple's ex-dividend dates -- the 2nd Monday of a month
+        idx = (pd.date_range(date(2022, 8, 8), freq='WOM-2MON', periods=30)[::3] - BDay(1))
         divs = pd.Series([.23] * len(idx), index=idx, name=TICKER + ' Dividends')
 
         pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,

@@ -18,7 +18,8 @@ class VolatilityTracker:
     CLOSE = 'Close'
     DAILY_RETURN = 'ui'
     VARIANCE = 'Variance'
-    TO_ANNUAL_MULTIPLIER = sqrt(252)
+    TRADING_DAYS_IN_YEAR = 252
+    TO_ANNUAL_MULTIPLIER = sqrt(TRADING_DAYS_IN_YEAR)
 
     def __init__(self, asset_prices_series=None, start=None, end=None, asset='EURUSD=X'):
         """
@@ -215,6 +216,7 @@ class GARCHVolatilityTracker(VolatilityTracker):
     def get_term_volatility_forecast(self, t):
         a = log(1/(self.alpha + self.beta))
         vl = self.get_vl()
+        t_in_days = t * VolatilityTracker.TRADING_DAYS_IN_YEAR
         next_bd_variance = self.get_next_business_day_volatility().values[0] ** 2
-        return sqrt(vl + (1 - exp(-a * t)) / (a * t) * (next_bd_variance - vl))\
+        return sqrt(vl + (1 - exp(-a * t_in_days)) / (a * t_in_days) * (next_bd_variance - vl))\
             if t > 9.1e-5 else self.get_next_business_day_volatility()[0] # 9.1e-5 is about 8 hours
