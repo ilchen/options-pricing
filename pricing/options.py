@@ -400,6 +400,12 @@ if __name__ == "__main__":
 
         # Obtaining a volatility estimate for maturity
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
+        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
+        #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
+
+        # vol_estimator2 = parameter_estimators.GARCHVarianceTargetingParameterEstimator(asset_prices)
+        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
+        #       % (vol_estimator2.omega, vol_estimator2.alpha, vol_estimator2.beta))
         #
         # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
         #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
@@ -419,9 +425,13 @@ if __name__ == "__main__":
 
         strike = 180.
 
-        # An approximate rule for Apple's ex-dividend dates -- the 2nd Monday of a month
-        idx = (pd.date_range(date(2022, 8, 8), freq='WOM-2MON', periods=30)[::3] - BDay(1))
-        divs = pd.Series([.23] * len(idx), index=idx, name=TICKER + ' Dividends')
+        # Yahoo-dividends returns the most recent ex-dividend date in the first row
+        last_divs = web.DataReader(TICKER, 'yahoo-dividends', cur_date.year).value
+
+        # An approximate rule for Apple's ex-dividend dates -- ex-dividend date is on the first Friday
+        # of the last month of a season.
+        idx = (pd.date_range(last_divs.index[0].date(), freq='WOM-1FRI', periods=30)[::3])
+        divs = pd.Series([last_divs[0]] * len(idx), index=idx, name=TICKER + ' Dividends')
 
         pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
                                           ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)

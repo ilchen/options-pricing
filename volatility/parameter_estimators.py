@@ -11,7 +11,7 @@ from scipy.optimize import LinearConstraint
 
 class ParameterEstimator:
     """
-    Represents an estimator for volatility forecasting parameters
+    A base class for estimators of volatility forecasting parameters
     """
 
     CLOSE = 'Close'
@@ -66,26 +66,26 @@ class ParameterEstimator:
 
 class GARCHParameterEstimator(ParameterEstimator):
     """
-    Represents a maximum likelihood estimator for the ω, α, and β parameters of the GARCH(1, 1) model of forecasting volatility
+    A maximum likelihood estimator for the ω, α, and β parameters of the GARCH(1, 1) model of forecasting volatility
     """
     # Ensuring that ω, α, and β values we will search for have roughly equal values in terms of magnitude
-    GARCH_PARAM_MULTIPLIERS = np.array([1e5, 1, .1], dtype=np.float64)
+    GARCH_PARAM_MULTIPLIERS = np.array([1e5, 10, 1], dtype=np.float64)
 
     def __init__(self, asset_prices_series=None, start=None, end=None, asset='EURUSD=X'):
         super().__init__(asset_prices_series, start, end, asset)
 
         # Initial values for ω, α, and β parameters for GARCH
-        x0 = np.array([1e-5, .1, .8], dtype=np.float64)
+        x0 = np.array([1e-5, .1, .87], dtype=np.float64)
 
         def objective_func(x):
-            ''' This function searches for optimal values of the ω, α, and β parameters of the GARCH(1, 1)
+            """ This function searches for optimal values of the ω, α, and β parameters of the GARCH(1, 1)
             model given the sample of asset price changes stored in the 'self.data' DataFrame. Since SciPy only has
-            optimization routines that minimize an objective function, this function returns negates the value of the
-            log likelihood objective function for GARCH.
+            optimization routines that minimize an objective function, this function negates the value of the
+            log likelihood objective function for GARCH upon return.
             :param x: a tuple of the ω, α, and β parameters where ω, α, and β
                       should be appropriately scaled to be in approximately the same range. This greatly aids the
                       speed of optimization
-            '''
+            """
             ω, α, β = x / GARCHParameterEstimator.GARCH_PARAM_MULTIPLIERS
 
             # Unfortunately not vectorizable as the next value depends on the previous
@@ -107,7 +107,9 @@ class GARCHParameterEstimator(ParameterEstimator):
                 if self.number_assets > 1:
                     df_copy = df_copy.dropna()
                 for i in range(2, len(df_copy)):
-                    df_copy.iloc[i, 1] = ω + α * df_copy.iloc[i - 1, 0] ** 2 + β * df_copy.iloc[i - 1, 1]
+                    df_copy.iloc[i, 1] = ω + α * df_copy.iloc[i-1, 0] ** 2 + β * df_copy.iloc[i-1, 1]
+                # No need to take the first variance value into account as it doesn't depend on ω, α, β,
+                # hence starting from the second row
                 sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
 
             return sum
@@ -139,9 +141,95 @@ class GARCHParameterEstimator(ParameterEstimator):
             raise ValueError("Optimizing the objective function with the passed asset price changes didn't succeed")
 
 
+class GARCHVarianceTargetingParameterEstimator(ParameterEstimator):
+    """
+    A maximum likelihood estimator for the ω, α, and β parameters of the GARCH(1, 1) model of forecasting volatility.
+    In contrast to the GARCHParameterEstimator class, it's faster because it sets ω based on the sample variance
+    of price changes. Then it optimises for only two variables (α, β) instead of 3 (α, β, ω) as GARCHParameterEstimator.
+    This class cannot be used to estimate GARCH parameters of multiple assets
+    """
+    # Ensuring that ω and β values we will search for have roughly equal values in terms of magnitude
+    GARCH_PARAM_MULTIPLIERS = np.array([1e5, 1], dtype=np.float64)
+
+    def __init__(self, asset_prices_series=None, start=None, end=None, asset='EURUSD=X'):
+        super().__init__(asset_prices_series, start, end, asset)
+        if self.number_assets > 1:
+            raise ValueError('Cannot use GARCHVarianceTargetingParameterEstimator for estimating GARCH(1,1) parameters'
+                             ' of more than one asset')
+
+        # Initial values for ω and β parameters for GARCH
+        x0 = np.array([1e-5, .87], dtype=np.float64)
+
+        vl = self.data.iloc[:, 1].var()   # sample variance
+
+        def objective_func(x):
+            """ This function searches for optimal values of the ω and β parameters of the GARCH(1, 1)
+            model given the sample of asset price changes stored in the 'self.data' DataFrame. Since SciPy only has
+            optimization routines that minimize an objective function, this function negates the value of the
+            log likelihood objective function for GARCH upon return.
+            :param x: a tuple of the ω, α, and β parameters where ω, α, and β
+                      should be appropriately scaled to be in approximately the same range. This greatly aids the
+                      speed of optimization
+            """
+            ω, β = x / GARCHVarianceTargetingParameterEstimator.GARCH_PARAM_MULTIPLIERS
+            α = 1 - β - ω / vl
+
+            # Unfortunately not vectorizable as the next value depends on the previous
+            # self.data[self.VARIANCE].iloc[1:] = ω + α * self.data[self.DAILY_RETURN].iloc[:-1]**2\
+            #                                       + β * self.data[self.VARIANCE].iloc[:-1]
+            # for i in range(2, len(self.data)):
+            #     for j in range(self.number_assets):
+            #         self.data.iloc[i, j*3+2] = ω + α * self.data.iloc[i-1, j*3+1] ** 2 \
+            #                                        + β * self.data.iloc[i-1, j*3+2]
+            # sum = 0.
+            # for j in range(self.number_assets):
+            #     sum -= (-np.log(self.data.iloc[1:, j*3+2]) -
+            #             self.data.iloc[1:, j*3+1] ** 2 / self.data.iloc[1:, j*3+2]).sum()
+
+            # Catering to a case where some series in a DataFrame may have NaNs due to different trading days
+            sum = 0.
+            for i in range(2, len(self.data)):
+                self.data.iloc[i, 2] = ω + α * self.data.iloc[i-1, 1] ** 2 + β * self.data.iloc[i-1, 2]
+            # No need to take the first variance value into account as it doesn't depend on ω, α, β,
+            # hence starting from the second row
+            sum -= (-np.log(self.data.iloc[2:, 2]) - self.data.iloc[2:, 1] ** 2 / self.data.iloc[2:, 2]).sum()
+
+            return sum
+
+        # print('Starting with objective function value of:', -objective_func(x0 * self.GARCH_PARAM_MULTIPLIERS))
+
+        # ω[0;1], β[0;1]
+        bounds = Bounds([0., 0.], np.array([1., 1.]) * self.GARCH_PARAM_MULTIPLIERS)
+
+        # 0 <= ω/vl + β <=1
+        constr = LinearConstraint([[1 / (vl * self.GARCH_PARAM_MULTIPLIERS[0]), 1 / self.GARCH_PARAM_MULTIPLIERS[1]]],
+                                  [0], [1])
+
+        # Can pass a Hessian matrix of zero as the objective function is linear with respect to ω, α, and β.
+        # However, the optimization process then takes 3 times as long, but removes the warning.
+        # Better to suppress it altogether.
+        import warnings
+        warnings.filterwarnings('ignore', message='delta_grad == 0.0. Check if the approximated function is linear.')
+
+        # L-BFGS-B is extremely fast, yet may produce negative values for α while optimizing, whereby triggering
+        # np.log errors. Resultant values are accurate though
+        # res = minimize(objective_func, x0 * self.GARCH_PARAM_MULTIPLIERS, method='L-BFGS-B', bounds=bounds)
+
+        res = minimize(objective_func, x0 * self.GARCH_PARAM_MULTIPLIERS, method='trust-constr',
+                       bounds=bounds, constraints=constr)
+        if res.success:
+            ω, β = res.x / self.GARCH_PARAM_MULTIPLIERS
+            print('Objective function: %.5f after %d iterations' % (-res.fun, res.nit))
+            self.omega = ω
+            self.alpha = 1 - β - ω / vl
+            self.beta = β
+        else:
+            raise ValueError("Optimizing the objective function with the passed asset price changes didn't succeed")
+
+
 class EWMAParameterEstimator(ParameterEstimator):
     """
-    Represents an maximum likelihood estimator for the λ parameter of the EWMA method of forecasting volatility
+    A maximum likelihood estimator for the λ parameter of the EWMA method of forecasting volatility
     """
 
     def __init__(self, asset_prices_series=None, start=None, end=None, asset='EURUSD=X'):
@@ -153,8 +241,8 @@ class EWMAParameterEstimator(ParameterEstimator):
         def objective_func(λ):
             """ This function searches for optimal values of the λ parameter of the EWMA
             model given the sample of asset price changes stored in the 'self.data' DataFrame. Since SciPy only has
-            optimization routines that minimize an objective function, this function returns negates the value of the
-            log likelihood objective function for EWMA.
+            optimization routines that minimize an objective function, this function negates the value of the
+            log likelihood objective function for EWMA upon return.
             :param λ: the λ parameter in EWMA method of estimating volatility
             """
 
@@ -173,7 +261,7 @@ class EWMAParameterEstimator(ParameterEstimator):
             for j in range(self.number_assets):
                 df_copy = self.data.iloc[:, j*3+1:j*3+3].dropna()
                 for i in range(2, len(df_copy)):
-                    df_copy.iloc[i, 1] = (1 - λ) * df_copy.iloc[i - 1, 0] ** 2 + λ * df_copy.iloc[i - 1, 1]
+                    df_copy.iloc[i, 1] = (1 - λ) * df_copy.iloc[i-1, 0] ** 2 + λ * df_copy.iloc[i-1, 1]
                 sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
 
             # sum = 0.
@@ -194,7 +282,7 @@ class EWMAParameterEstimator(ParameterEstimator):
 
 class EWMAMinimumDifferenceParameterEstimator(ParameterEstimator):
     """
-    Represents a minimum difference estimator for the λ parameter of the EWMA method of forecasting volatility.
+    A minimum difference estimator for the λ parameter of the EWMA method of forecasting volatility.
     Estimates the value of λ in the EWMA model such that it minimizes the value of Σ(νi - βi)^2, where νi is
     the variance forecast made at the end of day i − 1 and βi is the variance calculated from data between
     day i and day i + days_ahead.
