@@ -76,4 +76,6 @@ You can also run these notebooks in Google cloud. This way you don't need to ins
 2. In the modal window that appears select `GitHub`
 3. Enter the URL of this repository's notebook, e.g.: `https://github.com/ilchen/options-pricing/blob/main/equity-options-pricing-exmple.ipynb`
 4. Click the search icon
-5. Enjoy
+5. As you open the notebook in Google Colaboratory, please don't forget to uncomment the commands in the first cell
+of the notebook and run them.
+6. Enjoy. 
