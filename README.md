@@ -6,13 +6,21 @@ The repository contains the following packages :
    the parameters of the Exponentially Weighted Moving Average (EWMA) and GARCH(1, 1) models for tracking volatility.
    You can read about these models on the Internet or delve into John C. Hull's
    [Risk Management and Financial Institutions](http://www-2.rotman.utoronto.ca/~hull/riskman/index.html)
-   or [Options, Futures, and Other Derivatives](http://www-2.rotman.utoronto.ca/~hull/ofod/index.html).
+   or [Options, Futures, and Other Derivatives](http://www-2.rotman.utoronto.ca/~hull/ofod/index.html). There are
+   two implementations for GARCH parameter estimation:
+  * a standard one `GARCHParameterEstimator`, which optimizes for all the three GARCH parameters (ω, α, and β);
+  * and `GARCHVarianceTargetingParameterEstimator`, which is faster because it uses the so-called variance targeting
+      method whereby it sets ω based on the sample variance of price changes. Then it optimises for only two variables
+      instead of three as `GARCHParameterEstimator` does. It's marginally less accurate.
+
 * `volatility.volatility_trackers` &mdash; contains classes to track past and forecast future volatilities using
   EWMA and GARCH(1, 1) models. For the purposes of pricing options GARCH(1, 1) is preferred because it supports
   volatility forecasting for future maturities by incorporating mean reversion (and volatility of equities lends itself
   to mean reversion).
+
 * `pricing.curves` &mdash; contains classes to construct yield curves and obtain discount factors as well as forward
-  discount factors.
+  discount factors. Parallel shifts to curve points are supported as well.
+
 * `pricing.options` &mdash; contains classes implementing a Black-Scholes-Merton and Binomial-Tree pricers.
 
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
@@ -31,7 +39,7 @@ python3 -m pip install -r requirements.txt
 
 ## How to get started
 The best way to learn how to use the classes from this repository is to run the example Jupyter notebooks. I created
-one each for pricing different kinds of options and put ample comments and explanations to them. To use the notebooks,
+one each for pricing different kinds of options and put ample comments and explanations in them. To use the notebooks,
 please proceed as follows:
 
 After you clone the repo and `cd` into its directory, please run one of the below commands depending on which notebook you are interested in:
@@ -56,7 +64,7 @@ jupyter notebook equity-index-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Equity Index Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-index-options-pricing-example.ipynb).
 
-And another example notebook for pricing an option in Euro on AEX (a capitalization-weighted index of 25 largest Dutch companies:
+And another example notebook for pricing an option in Euro on AEX (a capitalization-weighted index of 25 largest Dutch companies):
 ```commandline
 jupyter notebook euro-equity-index-options-pricing-example.ipynb
 ```
