@@ -131,7 +131,7 @@ class BlackScholesMertonPricer(OptionsPricer):
     The Black-Scholes-Merton model pricer. It can be used to price European options, including on stock that pays
     dividends. It can also be used to price American call options (even those paying dividends) doing it is based
     on the fact that it is never optimal to exercise an American call option prematurely except on days immediately
-    preceeding ex-dividend days for the stock.
+    preceding ex-dividend days for the stock.
     """
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
