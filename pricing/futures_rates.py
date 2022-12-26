@@ -84,12 +84,14 @@ class CMEFixedIncomeFuturesRates:
         return 2. * (np.exp(series / 2.) - 1.)
 
     @staticmethod
-    def tnote_price_to_yield(tnote_price, maturity=10):
+    def tnote_price_to_yield(tnote_price, maturity=7):
         """
-        Converts an n-year T-Note/Bond futures price to a corresponding yield
+        Converts an n-year T-Note/Bond futures price to a corresponding yield with semiannual compounding.
+        The 10-year T-Note contract allows for delivery of any T-Note with fixed semi-annual coupons and
+        a remaining time to maturity of no less than 6.5 years and no more than 7.75 years.
 
         :param tnote_price: a float64 value representing the T-Note/Bond price
-        :param maturity: an integer value representing the maturity of the T-Note/Bond
+        :param maturity: an integer value representing the maturity of the T-Note/Bond that is expected to be delivered
         """
 
         # CME T-Note/Bond futures contracts are priced assuming a 6% par yield and 6% yield to maturity
