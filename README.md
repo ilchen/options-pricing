@@ -37,6 +37,8 @@ In case you opt for a local installation, the rest of the dependencies can be in
 python3 -m pip install -r requirements.txt
 ```
 **NB**: I use Yahoo-Finance data in the `Current_Riskfree_Rates.ipynb` notebook. Unfortunately Yahoo recently changed their API, as a result the last official version of pandas-datareader fails when retrieving data from Yahoo-Finance. To overcome this until a new version of pandas-datareader addresses this, please follow [this explanation](https://stackoverflow.com/questions/74832296/typeerror-string-indices-must-be-integers-when-getting-data-of-a-stock-from-y).
+Unfortunately an additional change is required for pandas-datareader to work with Yahoo-Finance as Yahoo made further changes to their API:
+`python3 -m pip install git+https://github.com/hellc/pandas-datareader.git@87dda3f297df8f4b3253c6f2d5006b5ac43a9150`
 
 ## How to get started
 The best way to learn how to use the classes from this repository is to run the example Jupyter notebooks. I created
