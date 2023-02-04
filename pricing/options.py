@@ -353,6 +353,11 @@ if __name__ == "__main__":
     from volatility import parameter_estimators
     from pricing import curves
 
+    # A kludge for pandas-datareader not being able to cope with latest Yahoo-Finance changes
+    import yfinance as yfin
+
+    yfin.pdr_override()
+
     TICKER = 'AAPL'
 
     try:
@@ -366,7 +371,7 @@ if __name__ == "__main__":
         cur_price = asset_prices[-1]
         print('S0 of %s on %s:\t%.5f' % (TICKER, date.strftime(cur_date, '%Y-%m-%d'), cur_price))
 
-        maturity_date = date(2023, month=1, day=20)
+        maturity_date = date(2024, month=1, day=19)
 
         # Constructing the riskless yield curve based on the current fed funds rate and treasury yields
         data = web.get_data_fred(
@@ -397,6 +402,7 @@ if __name__ == "__main__":
 
         cp = curve.get_curve_points(12)
         cps = curve.parallel_shift(1).get_curve_points(12)
+        term = curve.year_difference(date(2024, 1, 15), date(2024, 4, 15))
 
         # Obtaining a volatility estimate for maturity
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
