@@ -8,3 +8,4 @@ xlrd==2.0.1
 matplotlib>=3.3.0
 pandas-datareader>=0.10.0
 jupyter>=1.0.0
+yfinance>=0.2.9
