@@ -28,6 +28,11 @@ I created this repository with a view to being able to utilize freely available 
 Since [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html)
 provides an excellent way of tapping into these datasets, I opted for using it.
 
+**NB**: For pricing options denominated in Euro I recently switched to the [eurostat](https://pypi.org/project/eurostat/) library
+for constructing a riskless curve for Euro. It's better than pandas-datareader for working with eurostat data and also supports 
+[the latest Eurostat API](https://ec.europa.eu/eurostat/web/main/eurostat/web/main/help/faq/data-services),
+which pandas-datareader still doesn't support.
+
 ## Requirements
 You'll need python3 and pip. `brew install python` will do if you are on MacOS. You can even forgo installing anything
 and run the Jupyter notebooks of this repository in Google cloud, as I outline below.
@@ -36,14 +41,10 @@ In case you opt for a local installation, the rest of the dependencies can be in
 ```commandline
 python3 -m pip install -r requirements.txt
 ```
-**NB**: I use Yahoo-Finance data in all the jupyter notebooks in the respository. Unfortunately Yahoo-Finance recently changed
+**NB**: I use Yahoo-Finance data in all the jupyter notebooks in the repository. Unfortunately Yahoo-Finance recently changed
 their API, as a result the last official version of pandas-datareader fails when retrieving data from Yahoo-Finance.
 To overcome it, until a new version of pandas-datareader addresses this, I added a dependency on yfinance and adjusted
 the notebooks to make a `yfin.pdr_override()` call.
-
-**NB2**: Unfortunately Eurostat also made [changes to its API on 1<sup>st</sup> February](https://ec.europa.eu/eurostat/web/main/eurostat/web/main/help/faq/data-services).
-As a result pandas-datareader is not able to retrieve data from it. The jupyter notebooks concerning themselves
-with options denominated in Euro are not working until pandas-datareader is updated for this change.
 
 ## How to get started
 The best way to learn how to use the classes from this repository is to run the example Jupyter notebooks. I created
