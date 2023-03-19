@@ -61,7 +61,7 @@ class YieldCurve:
                                for maturity in maturities]
 
         # Verify it is monotonically increasing
-        assert all(self.timestamps[i] <= self.timestamps[i + 1] for i in range(len(maturities) - 1))
+        assert all(self.timestamps[i] < self.timestamps[i + 1] for i in range(len(maturities) - 1))
 
         # Discard numpy.nan datapoints
         mask = np.logical_not(np.isnan(rates))
@@ -152,7 +152,8 @@ class YieldCurve:
         """
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
-        assert self.timestamps[0] <= timestamp <= self.timestamps[-1]
+        assert self.timestamps[0] <= timestamp <= self.timestamps[-1],\
+                'date is in the past or outside this curve\'s terms range'
         return YieldCurve.year_difference(self.date, adjusted_datetime)
 
     def to_timedelta(self, delta_in_years):
