@@ -251,7 +251,7 @@ class YieldCurve:
     @staticmethod
     def year_difference(date1, date2):
         """
-        Calculates the difference between 'date2' and 'date1' in years teaking leap years into account
+        Calculates the difference between 'date2' and 'date1' in years taking leap years into account
 
         :param date1: a datetime.date or datetime.datetime instance
         :param date2: a datetime.date or datetime.datetime instance
