@@ -63,6 +63,9 @@ class ParameterEstimator:
                 self.data.insert(loc=i*3+2, column=self.data.columns[i*3]+self.VARIANCE, value=uis[1] ** 2)
             self.data = self.data.iloc[1:]
 
+            # Get rid of rows whose percentage changes are infinite
+            self.data = self.data[np.isfinite(self.data)].dropna()
+
 
 class GARCHParameterEstimator(ParameterEstimator):
     """
@@ -107,7 +110,11 @@ class GARCHParameterEstimator(ParameterEstimator):
                 if self.number_assets > 1:
                     df_copy = df_copy.dropna()
                 for i in range(2, len(df_copy)):
-                    df_copy.iloc[i, 1] = ω + α * df_copy.iloc[i-1, 0] ** 2 + β * df_copy.iloc[i-1, 1]
+                    # Skipping values that would lead to a propagation of infinity
+                    if np.isinf(df_copy.iloc[i-1, 0]):
+                        df_copy.iloc[i, 1] = df_copy.iloc[i-1, 1]
+                    else:
+                        df_copy.iloc[i, 1] = ω + α * df_copy.iloc[i-1, 0] ** 2 + β * df_copy.iloc[i-1, 1]
                 # No need to take the first variance value into account as it doesn't depend on ω, α, β,
                 # hence starting from the second row
                 sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
@@ -189,7 +196,11 @@ class GARCHVarianceTargetingParameterEstimator(ParameterEstimator):
             # Catering to a case where some series in a DataFrame may have NaNs due to different trading days
             sum = 0.
             for i in range(2, len(self.data)):
-                self.data.iloc[i, 2] = ω + α * self.data.iloc[i-1, 1] ** 2 + β * self.data.iloc[i-1, 2]
+                # Skipping values that would lead to a propagation of infinity
+                if np.isinf(self.data.iloc[i-1, 1]):
+                    self.data.iloc[i, 2] = self.data.iloc[i-1, 2]
+                else:
+                    self.data.iloc[i, 2] = ω + α * self.data.iloc[i-1, 1] ** 2 + β * self.data.iloc[i-1, 2]
             # No need to take the first variance value into account as it doesn't depend on ω, α, β,
             # hence starting from the second row
             sum -= (-np.log(self.data.iloc[2:, 2]) - self.data.iloc[2:, 1] ** 2 / self.data.iloc[2:, 2]).sum()
@@ -261,7 +272,11 @@ class EWMAParameterEstimator(ParameterEstimator):
             for j in range(self.number_assets):
                 df_copy = self.data.iloc[:, j*3+1:j*3+3].dropna()
                 for i in range(2, len(df_copy)):
-                    df_copy.iloc[i, 1] = (1 - λ) * df_copy.iloc[i-1, 0] ** 2 + λ * df_copy.iloc[i-1, 1]
+                    # Skipping values that would lead to a propagation of infinity
+                    if np.isinf(df_copy.iloc[i - 1, 0]):
+                        df_copy.iloc[i, 1] = df_copy.iloc[i-1, 1]
+                    else:
+                        df_copy.iloc[i, 1] = (1 - λ) * df_copy.iloc[i-1, 0] ** 2 + λ * df_copy.iloc[i-1, 1]
                 sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
 
             # sum = 0.
@@ -303,7 +318,10 @@ class EWMAMinimumDifferenceParameterEstimator(ParameterEstimator):
             sum = 0.
             for i in range(2, len(self.data) - days_ahead):
                 for j in range(self.number_assets):
-                    self.data.iloc[i, j*3+2] = (1 - λ) * self.data.iloc[i-1, j*3+1] ** 2 \
+                    if np.isinf(self.data.iloc[i-1, j*3+1]):
+                        self.data.iloc[i, j*3+2] = self.data.iloc[i-1, j*3+2]
+                    else:
+                        self.data.iloc[i, j*3+2] = (1 - λ) * self.data.iloc[i-1, j*3+1] ** 2 \
                                                    + λ * self.data.iloc[i-1, j*3+2]
                     # Ignoring the first 'days_ahead' observations of Σ(νi - βi)^2
                     # so that the results are not unduly influenced by the choice of starting values

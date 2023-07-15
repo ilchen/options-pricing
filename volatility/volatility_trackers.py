@@ -138,8 +138,11 @@ class EWMAVolatilityTracker(VolatilityTracker):
         # self.data[self.VARIANCE].iloc[1:] = (1 - λ) * self.data[self.DAILY_RETURN].iloc[:-1]**2\
         #                                     + λ * self.data[self.VARIANCE].iloc[:-1]
         for i in range(2, len(self.data[self.DAILY_RETURN])):
-            self.data[self.VARIANCE].iloc[i] = (1 - lamda) * self.data[self.DAILY_RETURN].iloc[i - 1] ** 2 \
-                                               + lamda * self.data[self.VARIANCE].iloc[i - 1]
+            if np.isinf(self.data[self.DAILY_RETURN].iloc[i-1]):
+                self.data[self.VARIANCE].iloc[i] = self.data[self.VARIANCE].iloc[i-1]
+            else:
+                self.data[self.VARIANCE].iloc[i] = (1-lamda) * self.data[self.DAILY_RETURN].iloc[i-1] ** 2 \
+                                                   + lamda * self.data[self.VARIANCE].iloc[i-1]
 
     def get_next_business_day_volatility(self):
         s = super().get_next_business_day_volatility()
@@ -178,8 +181,11 @@ class GARCHVolatilityTracker(VolatilityTracker):
         # self.data[self.VARIANCE].iloc[1:] = ω + α * self.data[self.DAILY_RETURN].iloc[:-1]**2\
         #                                       + β * self.data[self.VARIANCE].iloc[:-1]
         for i in range(2, len(self.data[self.DAILY_RETURN])):
-            self.data[self.VARIANCE].iloc[i] = omega + alpha * self.data[self.DAILY_RETURN].iloc[i - 1] ** 2 \
-                                               + beta * self.data[self.VARIANCE].iloc[i - 1]
+            if np.isinf(self.data[self.DAILY_RETURN].iloc[i - 1]):
+                self.data[self.VARIANCE].iloc[i] = self.data[self.VARIANCE].iloc[i - 1]
+            else:
+                self.data[self.VARIANCE].iloc[i] = omega + alpha * self.data[self.DAILY_RETURN].iloc[i - 1] ** 2 \
+                                                   + beta * self.data[self.VARIANCE].iloc[i - 1]
 
     def get_vl(self):
         """
