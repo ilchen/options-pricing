@@ -164,8 +164,8 @@ class CashflowDescriptor:
 
     def __init__(self, coupon_rate, coupon_frequency, notional, T):
         """
-        :param coupon_rate: coupon rate per annum
-        :param coupon_frequency: how many times a year is coupon paid
+        :param coupon_rate: coupon rate per annum, can be 0 if dealing with a zero-coupon bond
+        :param coupon_frequency: how many times a year is coupon paid, can be 0 if dealing with a zero-coupon bond
         :param notional: notional amount due
         :param T: time when the last coupon and notional are due
         """
@@ -173,12 +173,15 @@ class CashflowDescriptor:
         self.coupon_frequency = coupon_frequency
         self.notional = notional
         self.T = T
-        self.coupon_interval = 1 / coupon_frequency
-        self.timeline = np.arange(self.coupon_interval, T + self.coupon_interval, self.coupon_interval)
+        self.coupon_interval = 1. / coupon_frequency if coupon_frequency != 0 else 0.
+        self.timeline = np.arange(self.coupon_interval, T + self.coupon_interval, self.coupon_interval) \
+            if coupon_frequency != 0 else np.array([T])
         self.coupon_amount = notional * coupon_rate * self.coupon_interval
 
     def cashflow(self, t, coupon_rate=None):
         """
+        Returns a cashflow expected at time 't' (if any), no adjustment is made to convert it to is present value.
+
         :param t: future time in years
         :param coupon_rate: a different coupon rate from self.coupon_rate, might be handy when valuing asset swaps
         """
@@ -190,7 +193,11 @@ class CashflowDescriptor:
 
     def pv_cashflows_from_time(self, start_time, discount_rate):
         """
-        Calculates the value of cashflows past 'start_time' as seen at 'start_time'
+        Calculates the value of cashflows past 'start_time' as seen at 'start_time'.
+
+        :param start_time: a time expressed in years such that all cashflows taking
+                           place at that time or after are priced
+        :param discount_rate: a discount rate expressed with continuous compounding
         """
         start = start_time if start_time in self.timeline else self.timeline[self.timeline.searchsorted(start_time)]
         timeline = np.arange(start, self.T + self.coupon_interval, self.coupon_interval)
@@ -206,6 +213,40 @@ class CashflowDescriptor:
     def pv_all_cashflows_with_other_coupon_rate(self, other_coupon_rate, discount_rate, t0=0):
         return sum(map(lambda t: self.cashflow(t, other_coupon_rate) * exp(-discount_rate * (t - t0)), self.timeline))
 
+    def get_duration(self, discount_rate):
+        """
+        Calculates the duration of the asset represented by this descriptor.
+
+        :param discount_rate: a discount rate expressed with continuous compounding
+        """
+        pv = self.pv_all_cashflows(discount_rate)
+        return sum(map(lambda t: self.cashflow(t) * exp(-discount_rate * t) * t / pv, self.timeline))
+
+
+class BondPortfolio:
+    """
+    A portfolio of bonds each of which is represented by a CashflowDescriptor instance
+    """
+
+    def __init__(self, cashflow_descriptors):
+        """
+        :param cashflow_descriptors: a single CashflowDescriptor or a list thereof
+        """
+        self.descriptors = np.array([cashflow_descriptors]) if isinstance(cashflow_descriptors, CashflowDescriptor) \
+            else np.array(cashflow_descriptors)
+
+    def get_duration(self, discount_rate):
+        """
+        Calculates the duration of this portfolio.
+
+        :param discount_rate: a discount rate expressed with continuous compounding
+        """
+        assets_pvs_and_durations = list(map(
+            lambda descr: (descr.pv_all_cashflows(discount_rate), descr.get_duration(discount_rate)), self.descriptors))
+        assets_pvs, durations = zip(*assets_pvs_and_durations)
+        portfolio_pv = sum(assets_pvs)
+        return sum(map(lambda asset_pv_and_duration: asset_pv_and_duration[0] * asset_pv_and_duration[1] / portfolio_pv, assets_pvs_and_durations))
+
 
 if __name__ == "__main__":
     import sys
@@ -216,6 +257,7 @@ if __name__ == "__main__":
     import pandas_datareader.data as web
     import numpy as np
     import yfinance as yfin
+
     yfin.pdr_override()
 
     try:
