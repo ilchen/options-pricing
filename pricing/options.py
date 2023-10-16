@@ -27,7 +27,7 @@ class OptionsPricer:
     UNSPECIFIED_TICKER = 'Unspecified'
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
-                 opt_type=OptionType.EUROPEAN, ticker=UNSPECIFIED_TICKER, q=0., dividends=None):
+                 opt_type=OptionType.EUROPEAN, ticker=UNSPECIFIED_TICKER, q=0., dividends=None, holidays=None):
         """
         Constructs a pricer for based on specified maturities and rates.
 
@@ -45,6 +45,10 @@ class OptionsPricer:
                   object indexed by DatetimeIndex specifying expected dividend payments. The dates must be
                   based on the ex-dividend date for the asset. NB: if this parameter is not None,
                   the 'q' parameter must be 0
+        :param holidays: array_like of datetime64[D], optional, allows for more accurate pricing by taking additional
+                  non-trading days into account. If not specified, the year duration of the option is translated using
+                  calendar days, if specified, it is calculated based on the number of business days to maturity
+                  divided by 252
         """
         self.maturity_date = maturity
         self.vol_tracker = volatility_tracker if isinstance(volatility_tracker, volatility_trackers.VolatilityTracker)\
@@ -55,7 +59,12 @@ class OptionsPricer:
         self.is_call = is_call
         self.opt_type = opt_type
         self.ticker = ticker
-        self.T = curve.to_years(self.maturity_date)
+        self.holidays = holidays
+        self.T = curve.to_years(self.maturity_date) if holidays is None\
+                    else curve.to_years_busdays_based(self.maturity_date, holidays)
+        # When measuring the lifetime of an option in trading days rather than calendar days,
+        # the maturity correction coefficient will be > 1 most of the time
+        self.maturity_correction_coef = 1. if holidays is None else curve.to_years(self.maturity_date) / self.T
         if self.T == 0.:
             self.T = 8 / (24 * (366 if curves.YieldCurve.is_leap_year(self.maturity_date.year) else 365))
         self.r = self.riskless_yield_curve.to_continuous_compounding(
@@ -135,7 +144,8 @@ class BlackScholesMertonPricer(OptionsPricer):
     """
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
-                 opt_type=OptionType.EUROPEAN, ticker=OptionsPricer.UNSPECIFIED_TICKER, q=0., dividends=None):
+                 opt_type=OptionType.EUROPEAN, ticker=OptionsPricer.UNSPECIFIED_TICKER, q=0., dividends=None,
+                 holidays=None):
         """
         Constructs a pricer based on the Black-Scholes-Merton options pricing model. It can price any European option
         and any American call option including those whose underlying stock pays dividend.
@@ -154,11 +164,14 @@ class BlackScholesMertonPricer(OptionsPricer):
                           object indexed by DatetimeIndex specifying expected dividend payments. The dates must be
                           based on the ex-dividend date for the asset. NB: if this parameter is not None,
                           the 'q' parameter must be 0
-
+        :param holidays: array_like of datetime64[D], optional, allows for more accurate pricing by taking additional
+                  non-trading days into account. If not specified, the year duration of the option is translated using
+                  calendar days, if specified, it is calculated based on the number of business days to maturity
+                  divided by 252
         """
 
         super().__init__(maturity, volatility_tracker, strike, curve, cur_price, is_call,
-                         opt_type, ticker, q, dividends)
+                         opt_type, ticker, q, dividends, holidays)
 
         if self.opt_type == OptionType.AMERICAN and not self.is_call:
             raise NotImplementedError('Cannot price an American Put option using the Black-Scholes-Merton model')
@@ -186,7 +199,8 @@ class BlackScholesMertonPricer(OptionsPricer):
                 pricer = BlackScholesMertonPricer((self.divs.index[-1] - BDay(1)).date(),
                         self.vol_tracker if self.vol_tracker is not None else self.annual_volatility,
                         self.strike, self.riskless_yield_curve, self.s0, opt_type=OptionType.AMERICAN,
-                        dividends=self.divs.truncate(after=self.divs.index[-2]) if len(self.divs.index) > 1 else None)
+                        dividends=self.divs.truncate(after=self.divs.index[-2]) if len(self.divs.index) > 1 else None,
+                        holidays=self.holidays)
                 if pricer.get_price() > call_price:
                     self.early_exercise_pricer = pricer
             self.price = call_price
@@ -216,7 +230,7 @@ class BlackScholesMertonPricer(OptionsPricer):
             summand2 *= norm.cdf(self.d1)
         else:
             summand *= norm.cdf(-self.d2)
-            summand2 *= -norm.cfg(-self.d1)
+            summand2 *= -norm.cdf(-self.d1)
         return -self.adjusted_s0 * norm.pdf(self.d1) * self.annual_volatility * exp(-self.q * self.T)\
                / (2 * sqrt(self.T)) + summand + summand2
 
@@ -245,7 +259,7 @@ class BinomialTreePricer(OptionsPricer):
 
     def __init__(self, maturity, volatility_tracker, strike, curve, cur_price, is_call=True,
                  opt_type=OptionType.EUROPEAN, ticker=OptionsPricer.UNSPECIFIED_TICKER, q=0., dividends=None,
-                 num_steps_binomial_tree=26):
+                 holidays=None, num_steps_binomial_tree=26):
         """
         Constructs a pricer based on the Binomial Tree options pricing model. It can price any European option
         and any American option including those whose underlying stock pays dividend.
@@ -262,18 +276,21 @@ class BinomialTreePricer(OptionsPricer):
                                                            with continuous compounding)
         :param dividends: if the asset pays dividends during the specified maturity period, specifies a pandas.Series
                           object indexed by DatetimeIndex specifying expected dividend payments
+        :param holidays: array_like of datetime64[D], optional, allows for more accurate pricing by taking additional
+                  non-trading days into account. If not specified, the year duration of the option is translated using
+                  calendar days, if specified, it is calculated based on the number of business days to maturity
+                  divided by 252
         :param num_steps_binomial_tree: number of steps in the binomial tree that will be constructed, must be >=2,
                                         the higher the number the more accurate the price
         """
 
         super().__init__(maturity, volatility_tracker, strike, curve, cur_price, is_call,
-                         opt_type, ticker, q, dividends)
+                         opt_type, ticker, q, dividends, holidays)
 
         assert num_steps_binomial_tree >= 2
 
-        year_diff = self.riskless_yield_curve.to_years(self.maturity_date)
         self.steps = num_steps_binomial_tree
-        self.delta_t = year_diff / self.steps
+        self.delta_t = self.T / self.steps
 
         self.u = exp(self.annual_volatility * sqrt(self.delta_t))
         self.d = exp(-self.annual_volatility * sqrt(self.delta_t))
@@ -299,11 +316,14 @@ class BinomialTreePricer(OptionsPricer):
         for j in range(self.steps+1):
             self.tree[self.steps][j][1] = max(0., self.tree[self.steps][j][0] - self.strike) if self.is_call \
                                             else max(0., self.strike - self.tree[self.steps][j][0])
+        # maturity_correction_coef differs from 1. if we are pricing the option by determining its lifetime
+        # expressed in years based on the number of trading days till option maturity divided by 252.
         for i in range(self.steps-1, -1, -1):
-            npv_divs = self.get_npv_dividends(self.delta_t * i) if self.divs is not None else 0.
+            npv_divs = self.get_npv_dividends(self.delta_t * i * self.maturity_correction_coef)\
+                if self.divs is not None else 0.
             dcf = self.riskless_yield_curve.get_forward_discount_factor_for_maturity_date(
-                    self.riskless_yield_curve.to_datetime(self.delta_t * i),
-                    self.riskless_yield_curve.to_datetime(self.delta_t * (i + 1)))
+                    self.riskless_yield_curve.to_datetime(self.delta_t * i * self.maturity_correction_coef),
+                    self.riskless_yield_curve.to_datetime(self.delta_t * (i + 1) * self.maturity_correction_coef))
             for j in range(i+1):
                 self.tree[i][j][0] += npv_divs
                 opt_price = (self.p * self.tree[i+1][j][1] + (1 - self.p) * self.tree[i+1][j+1][1]) * dcf
@@ -328,7 +348,7 @@ class BinomialTreePricer(OptionsPricer):
         delta_sigma = 1e-4 # 1 bp
         return (BinomialTreePricer(self.maturity_date, self.annual_volatility + delta_sigma, self.strike,
                                    self.riskless_yield_curve, self.s0, self.is_call, self.opt_type, self.ticker,
-                                   self.q, self.divs, self.steps).get_price() - self.get_price()) / delta_sigma
+                                   self.q, self.divs, self.holidays, self.steps).get_price() - self.get_price()) / delta_sigma
 
     def get_theta(self):
         return (self.tree[2][1][1] - self.tree[0][0][1]) / (2 * self.delta_t)
@@ -337,7 +357,7 @@ class BinomialTreePricer(OptionsPricer):
         num_bp = 1
         return (BinomialTreePricer(self.maturity_date, self.annual_volatility, self.strike,
                                    self.riskless_yield_curve.parallel_shift(num_bp), self.s0, self.is_call,
-                                   self.opt_type, self.ticker, self.q, self.divs, self.steps).get_price()
+                                   self.opt_type, self.ticker, self.q, self.divs, self.holidays, self.steps).get_price()
                 - self.get_price()) / (num_bp * 1e-4)
 
 
@@ -355,6 +375,9 @@ if __name__ == "__main__":
 
     # A kludge for pandas-datareader not being able to cope with latest Yahoo-Finance changes
     import yfinance as yfin
+    import pandas_market_calendars as mcal
+
+    holidays = mcal.get_calendar('NYSE').holidays()
 
     yfin.pdr_override()
 
@@ -362,8 +385,8 @@ if __name__ == "__main__":
 
     try:
         locale.setlocale(locale.LC_ALL, '')
-        start = date(2018, 1, 1)
         end = date.today()
+        start = BDay(1).rollback(end - relativedelta(years=+2))
         data = web.get_data_yahoo(TICKER, start, end)
         asset_prices = data['Adj Close']
         # cur_date = max(date.today(), asset_prices.index[-1].date())
@@ -397,12 +420,16 @@ if __name__ == "__main__":
                    relativedelta(years=+30)]
 
         # Define yield curves
-        curve = curves.YieldCurve(cur_date, offsets, data[cur_date_curve:cur_date_curve + BDay()].to_numpy()[0, :],
+        curve = curves.YieldCurve(end, offsets, data[cur_date_curve:cur_date_curve + BDay()].to_numpy()[0, :],
                                   compounding_freq=2)
 
         cp = curve.get_curve_points(12)
         cps = curve.parallel_shift(1).get_curve_points(12)
         term = curve.year_difference(date(2024, 1, 15), date(2024, 4, 15))
+
+        maturity_date = date(2027, month=1, day=17)
+        maturity_date2 = date(2024, month=1, day=19)
+        curve.year_difference_busdays_based(maturity_date, maturity_date2, holidays.holidays)
 
         # Obtaining a volatility estimate for maturity
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
@@ -431,8 +458,16 @@ if __name__ == "__main__":
 
         strike = 180.
 
-        # Yahoo-dividends returns the most recent ex-dividend date in the first row
-        last_divs = web.DataReader(TICKER, 'yahoo-dividends', cur_date.year).value
+        # yfinance returns the most recent ex-dividend date in the last row
+        ticker = yfin.Ticker(TICKER)
+        last_divs = ticker.dividends[-1:]
+
+        # An approximate rule for Apple's ex-dividend dates -- ex-dividend date is on the first Friday
+        # of the last month of a season if that Friday is the 5th day of the month or later, otherwise
+        # it falls on the second Friday of that month.
+        idx = (pd.date_range(last_divs.index[0].date(), freq='WOM-1FRI', periods=30)[::3])
+        idx = idx.map(lambda dt: dt if dt.day >= 5 else dt + BDay(5))
+        divs = pd.Series([last_divs[0]] * len(idx), index=idx, name=TICKER + ' Dividends')
 
         # An approximate rule for Apple's ex-dividend dates -- ex-dividend date is on the first Friday
         # of the last month of a season.
@@ -440,22 +475,26 @@ if __name__ == "__main__":
         divs = pd.Series([last_divs[0]] * len(idx), index=idx, name=TICKER + ' Dividends')
 
         pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                          ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
+                                          ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
+                                          holidays=holidays.holidays)
         print(pricer)
 
         pricer_put = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                              ticker=TICKER, dividends=divs)
+                                              ticker=TICKER, dividends=divs, holidays=holidays.holidays)
         print(pricer_put)
 
         pricer = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                    ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
+                                    ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
+                                    holidays=holidays.holidays)
         print(pricer)
 
         pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
+                                        ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
+                                        holidays=holidays.holidays)
         print(pricer_put)
         pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.EUROPEAN)
+                                        ticker=TICKER, dividends=divs, opt_type=OptionType.EUROPEAN,
+                                        holidays=holidays.holidays)
         print(pricer_put)
 
         maturity_date = date(2023, month=3, day=17)

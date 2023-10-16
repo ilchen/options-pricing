@@ -152,9 +152,22 @@ class YieldCurve:
         """
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
+        if not self.timestamps[0] <= timestamp <= self.timestamps[-1]:
+            raise ValueError('date is in the past or outside this curve\'s terms range')
+        return YieldCurve.year_difference(self.date, adjusted_datetime)
+
+    def to_years_busdays_based(self, dt, holidays=None):
+        """
+        Converts 'dt' to a maturity expressed in years relative to the starting date of this curve and basing the
+        calculation on the number of business days between the two dates and in the years between them
+        :param dt: a datetime.date object that needs to be converted into maturity in years
+        :param holidays: array_like of datetime64[D], optional
+        """
+        adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
+        timestamp = adjusted_datetime.timestamp()
         assert self.timestamps[0] <= timestamp <= self.timestamps[-1],\
                 'date is in the past or outside this curve\'s terms range'
-        return YieldCurve.year_difference(self.date, adjusted_datetime)
+        return YieldCurve.year_difference_busdays_based(self.date, adjusted_datetime, holidays)
 
     def to_timedelta(self, delta_in_years):
         """
@@ -162,8 +175,18 @@ class YieldCurve:
 
         :param delta_in_years: a float value designating time in years from the starting date of this curve
         """
-        num_leap_years = YieldCurve.get_num_leap_years(self.date.year, int(self.date.year + delta_in_years))
-        return timedelta(minutes=int((365 + num_leap_years) * 24 * 60 * delta_in_years))
+        dt = datetime.combine(self.date, time())
+        temp_date2 = dt + timedelta(minutes=int(365 * 24 * 60 * delta_in_years))
+        if temp_date2.year == self.date.year:
+            leap_years_add_on = 1 if YieldCurve.is_leap_year(self.date.year) else 0
+        else:
+            num_leap_years = YieldCurve.get_num_leap_years(self.date.year, temp_date2.year + 1)
+            if dt > datetime(self.date.year, 2, 28) and YieldCurve.is_leap_year(self.date.year):
+                num_leap_years -= 1
+            if temp_date2 <= datetime(temp_date2.year, 2, 28) and YieldCurve.is_leap_year(temp_date2.year):
+                num_leap_years -= 1
+            leap_years_add_on = 0 if num_leap_years == 0 else num_leap_years / (temp_date2.year - self.date.year)
+        return timedelta(minutes=int((365 + leap_years_add_on) * 24 * 60 * delta_in_years))
 
     def to_datetime(self, delta_in_years):
         """
@@ -275,3 +298,47 @@ class YieldCurve:
         # Less accurate
         # return (pd.to_datetime(date2) - pd.to_datetime(date1)) / np.timedelta64(1, 'Y')
         return (time_delta.days + time_delta.seconds / (24. * 60 * 60)) / (365. + leap_years_add_on)
+
+    @staticmethod
+    def year_difference_busdays_based(date1, date2, holidays=None):
+        """
+        Calculates the difference between 'date2' and 'date1' in years taking leap years into account and basing the
+        calculation on the number of business days between the two dates and in the years between them
+
+        :param date1: a datetime.date or datetime.datetime instance
+        :param date2: a datetime.date or datetime.datetime instance
+        :param holidays: array_like of datetime64[D], optional
+        :return: a positive float value if date2 >= date1, a negative value otherwise
+        """
+        assert isinstance(date1, (date, datetime)) and isinstance(date2, (date, datetime))
+        np_date1 = np.datetime64(date1).astype('M8[D]')
+        np_date2 = np.datetime64(date2).astype('M8[D]')
+        if holidays is None:
+            holidays = []
+        busday_count = np.busday_count(np_date1, np_date2, holidays=holidays)
+
+        # Normalize to datetime
+        date1 = date1 if isinstance(date1, datetime) else datetime.combine(date1, time())
+        date2 = date2 if isinstance(date2, datetime) else datetime.combine(date2, time())
+
+        # Taking the average number of business days in the years implied by the two dates
+        num_days_in_year = np.busday_count(date(min(date1.year, date2.year), 1, 1),
+                                           date(max(date1.year, date2.year)+1, 1, 1), holidays=holidays)\
+            / (abs(date2.year - date1.year) + 1)
+
+        # By convention, see John C. Hull "Options, Futures and Other Derivatives", assuming 252 days in a year
+        num_days_in_year = max(252, num_days_in_year)
+
+        time_add_on = 0.
+        if np.is_busday(np_date1, holidays=holidays) and date1.time() != time():
+            time_add_on -= date1.time().hour * 60 * 60 + date1.time().minute * 60 + date1.time().second
+        if np.is_busday(np_date2, holidays=holidays) and date2.time() != time():
+            time_add_on += date2.time().hour * 60 * 60 + date2.time().minute * 60 + date2.time().second
+
+        # Convert from seconds into years
+        time_add_on /= 24. * 60 * 60 * num_days_in_year
+
+        return busday_count / num_days_in_year + time_add_on
+
+
+
