@@ -1,26 +1,17 @@
 import unittest
-from math import exp, sqrt
 from datetime import date, datetime, time
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import FR
 
-import numpy as np
-import pandas as pd
 from pandas.tseries.offsets import BDay
 
-import pandas_datareader.data as web
-import pandas_market_calendars as mcal
-import yfinance as yfin
-
 from pricing import curves
-from volatility import volatility_trackers
-from volatility import parameter_estimators
 
 
 class YieldCurveTestCase(unittest.TestCase):
     def setUp(self):
         today = date.today()
-        today = BDay(1).rollforward(today)
+        today = BDay(1).rollforward(datetime.combine(today, time()))
         offsets = [relativedelta(), relativedelta(weeks=+1), relativedelta(months=+1), relativedelta(months=+3),
                    relativedelta(months=+6),
                    relativedelta(years=+1), relativedelta(years=+2)]
@@ -43,7 +34,7 @@ class YieldCurveTestCase(unittest.TestCase):
         maturity_date3 = maturity_date2 + relativedelta(years=1, month=6, day=1, weekday=FR(3))
         with self.assertRaises(ValueError) as context:
             t = self.curve.to_years(maturity_date3)
-            dt = self.curve.to_datetime(t)
+            self.curve.to_datetime(t)
         self.assertTrue('date is in the past or outside this curve' in str(context.exception))
 
 

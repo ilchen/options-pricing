@@ -21,7 +21,15 @@ The repository contains the following packages :
 * `pricing.curves` &mdash; contains classes to construct yield curves and obtain discount factors as well as forward
   discount factors. Parallel shifts to curve points are supported as well.
 
+* `tests.test_curves` &mdash; a  set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
+  that validate the correctness of the discount curve logic as well as conversions from maturities expressed with
+  `datetime.date` objects to maturities expressed in years and back.
+
 * `pricing.options` &mdash; contains classes implementing a Black-Scholes-Merton and Binomial-Tree pricers.
+
+* `tests.test_options` &mdash; a fairly extensive set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
+  that validate the correctness of options pricing logic for both Black-Scholes-Merton and Binomial-Tree pricers. I test
+  for the correctness of calculated greeks, the put-call parity and do many additional checks.
 
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
 [Eurostat](https://ec.europa.eu/eurostat/web/main/data/database), and [Yahoo-Finance](https://finance.yahoo.com).

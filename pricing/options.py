@@ -1,6 +1,6 @@
 from enum import Enum, unique
 from math import sqrt, log, exp
-from datetime import date, timedelta
+from datetime import date
 
 import pandas as pd
 from pandas.tseries.offsets import BDay
@@ -52,7 +52,7 @@ class OptionsPricer:
         """
         self.maturity_date = maturity
         self.vol_tracker = volatility_tracker if isinstance(volatility_tracker, volatility_trackers.VolatilityTracker)\
-                                              else None
+            else None
         self.strike = strike
         self.riskless_yield_curve = curve
         self.s0 = cur_price
@@ -61,7 +61,7 @@ class OptionsPricer:
         self.ticker = ticker
         self.holidays = holidays
         self.T = curve.to_years(self.maturity_date) if holidays is None\
-                    else curve.to_years_busdays_based(self.maturity_date, holidays)
+            else curve.to_years_busdays_based(self.maturity_date, holidays)
         # When measuring the lifetime of an option in trading days rather than calendar days,
         # the maturity correction coefficient will be > 1 most of the time
         self.maturity_correction_coef = 1. if holidays is None else curve.to_years(self.maturity_date) / self.T
@@ -80,7 +80,8 @@ class OptionsPricer:
             assert isinstance(dividends.index, (pd.core.indexes.datetimes.DatetimeIndex, pd.core.indexes.base.Index))\
                 and dividends.index.is_monotonic_increasing and q == 0.
             # Get rid of dividends not relevant for valuing this option
-            self.divs = dividends.truncate(after=self.maturity_date).truncate(before=self.riskless_yield_curve.date+BDay())
+            self.divs = dividends.truncate(after=self.maturity_date)\
+                .truncate(before=self.riskless_yield_curve.date+BDay())
             if self.divs.empty:
                 self.divs = None
 
@@ -186,7 +187,7 @@ class BlackScholesMertonPricer(OptionsPricer):
         adjusted_s0 = self.s0 - self.get_npv_dividends() if self.q == 0. else self.s0
         vol_to_maturity = self.annual_volatility * sqrt(self.T)
         d1 = (log(adjusted_s0 / self.strike) + (self.r - self.q + self.annual_volatility ** 2 / 2.) * self.T)\
-             / vol_to_maturity
+            / vol_to_maturity
         d2 = d1 - vol_to_maturity
 
         self.early_exercise_pricer = None
@@ -232,7 +233,7 @@ class BlackScholesMertonPricer(OptionsPricer):
             summand *= norm.cdf(-self.d2)
             summand2 *= -norm.cdf(-self.d1)
         return -self.adjusted_s0 * norm.pdf(self.d1) * self.annual_volatility * exp(-self.q * self.T)\
-               / (2 * sqrt(self.T)) + summand + summand2
+            / (2 * sqrt(self.T)) + summand + summand2
 
     def get_gamma(self):
         if self.early_exercise_pricer:
@@ -345,10 +346,11 @@ class BinomialTreePricer(OptionsPricer):
                 - (self.tree[2][1][1] - self.tree[2][2][1]) / (self.tree[0][0][0] - self.tree[2][2][0])) / h
 
     def get_vega(self):
-        delta_sigma = 1e-4 # 1 bp
+        delta_sigma = 1e-4  # 1 bp
         return (BinomialTreePricer(self.maturity_date, self.annual_volatility + delta_sigma, self.strike,
                                    self.riskless_yield_curve, self.s0, self.is_call, self.opt_type, self.ticker,
-                                   self.q, self.divs, self.holidays, self.steps).get_price() - self.get_price()) / delta_sigma
+                                   self.q, self.divs, self.holidays, self.steps).get_price() - self.get_price())\
+            / delta_sigma
 
     def get_theta(self):
         return (self.tree[2][1][1] - self.tree[0][0][1]) / (2 * self.delta_t)
@@ -359,210 +361,3 @@ class BinomialTreePricer(OptionsPricer):
                                    self.riskless_yield_curve.parallel_shift(num_bp), self.s0, self.is_call,
                                    self.opt_type, self.ticker, self.q, self.divs, self.holidays, self.steps).get_price()
                 - self.get_price()) / (num_bp * 1e-4)
-
-
-if __name__ == "__main__":
-    import sys
-    import locale
-    from datetime import date, datetime
-
-    from dateutil.relativedelta import relativedelta
-    import pandas_datareader.data as web
-    import numpy as np
-
-    from volatility import parameter_estimators
-    from pricing import curves
-
-    # A kludge for pandas-datareader not being able to cope with latest Yahoo-Finance changes
-    import yfinance as yfin
-    import pandas_market_calendars as mcal
-
-    holidays = mcal.get_calendar('NYSE').holidays()
-
-    yfin.pdr_override()
-
-    TICKER = 'AAPL'
-
-    try:
-        locale.setlocale(locale.LC_ALL, '')
-        end = date.today()
-        start = BDay(1).rollback(end - relativedelta(years=+2))
-        data = web.get_data_yahoo(TICKER, start, end)
-        asset_prices = data['Adj Close']
-        # cur_date = max(date.today(), asset_prices.index[-1].date())
-        cur_date = asset_prices.index[-1].date()
-        cur_price = asset_prices[-1]
-        print('S0 of %s on %s:\t%.5f' % (TICKER, date.strftime(cur_date, '%Y-%m-%d'), cur_price))
-
-        maturity_date = date(2024, month=1, day=19)
-
-        # Constructing the riskless yield curve based on the current fed funds rate and treasury yields
-        data = web.get_data_fred(
-            ['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30'],
-            end - BDay(3), end)
-        data.dropna(inplace=True)
-
-        cur_date_curve = data.index[-1].date()
-
-        # Convert to percentage points
-        data /= 100.
-
-        # Some adjustments are required:
-        # 1. https://www.federalreserve.gov/releases/h15/default.htm -> day count convention for Fed Funds Rate needs
-        # to be changed to actual/actual
-        # 2. Conversion to APY: https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rates-frequently-asked-questions
-        data.DFF *= (366 if curves.YieldCurve.is_leap_year(cur_date_curve.year) else 365) / 360 # to x/actual
-        data.DFF = 2 * (np.sqrt(data.DFF + 1) - 1)
-
-        offsets = [relativedelta(), relativedelta(months=+1), relativedelta(months=+3), relativedelta(months=+6),
-                   relativedelta(years=+1), relativedelta(years=+2), relativedelta(years=+3), relativedelta(years=+5),
-                   relativedelta(years=+7), relativedelta(years=+10), relativedelta(years=+20),
-                   relativedelta(years=+30)]
-
-        # Define yield curves
-        curve = curves.YieldCurve(end, offsets, data[cur_date_curve:cur_date_curve + BDay()].to_numpy()[0, :],
-                                  compounding_freq=2)
-
-        cp = curve.get_curve_points(12)
-        cps = curve.parallel_shift(1).get_curve_points(12)
-        term = curve.year_difference(date(2024, 1, 15), date(2024, 4, 15))
-
-        maturity_date = date(2027, month=1, day=17)
-        maturity_date2 = date(2024, month=1, day=19)
-        curve.year_difference_busdays_based(maturity_date, maturity_date2, holidays.holidays)
-
-        # Obtaining a volatility estimate for maturity
-        # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
-        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-        #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
-
-        # vol_estimator2 = parameter_estimators.GARCHVarianceTargetingParameterEstimator(asset_prices)
-        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-        #       % (vol_estimator2.omega, vol_estimator2.alpha, vol_estimator2.beta))
-        #
-        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-        #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
-        #
-        # vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
-        #                                                          vol_estimator.beta, asset_prices)
-        vol_tracker = volatility_trackers.GARCHVolatilityTracker(0.000020633369, 0.12462, 0.83220, asset_prices)
-
-        # vol_estimator = parameter_estimators.EWMAParameterEstimator(asset_prices)
-        # vol_tracker = volatility_trackers.EWMAVolatilityTracker(vol_estimator.lamda, asset_prices)
-        # Volatility of AAPL for term 0.2137: 0.32047
-
-        vol = vol_tracker.get_annual_term_volatility_forecast(curve.to_years(maturity_date))
-        # vol = 0.3134162504522202 (1 Aug 2022)
-        # vol = 0.29448 # (2 Aug 2022)
-        print('Volatility of %s for term %.4f: %.5f' % (TICKER, curve.to_years(maturity_date), vol))
-
-        strike = 180.
-
-        # yfinance returns the most recent ex-dividend date in the last row
-        ticker = yfin.Ticker(TICKER)
-        last_divs = ticker.dividends[-1:]
-
-        # An approximate rule for Apple's ex-dividend dates -- ex-dividend date is on the first Friday
-        # of the last month of a season if that Friday is the 5th day of the month or later, otherwise
-        # it falls on the second Friday of that month.
-        idx = (pd.date_range(last_divs.index[0].date(), freq='WOM-1FRI', periods=30)[::3])
-        idx = idx.map(lambda dt: dt if dt.day >= 5 else dt + BDay(5))
-        divs = pd.Series([last_divs[0]] * len(idx), index=idx, name=TICKER + ' Dividends')
-
-        # An approximate rule for Apple's ex-dividend dates -- ex-dividend date is on the first Friday
-        # of the last month of a season.
-        idx = (pd.date_range(last_divs.index[0].date(), freq='WOM-1FRI', periods=30)[::3])
-        divs = pd.Series([last_divs[0]] * len(idx), index=idx, name=TICKER + ' Dividends')
-
-        pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                          ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
-                                          holidays=holidays.holidays)
-        print(pricer)
-
-        pricer_put = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                              ticker=TICKER, dividends=divs, holidays=holidays.holidays)
-        print(pricer_put)
-
-        pricer = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                    ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
-                                    holidays=holidays.holidays)
-        print(pricer)
-
-        pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN,
-                                        holidays=holidays.holidays)
-        print(pricer_put)
-        pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.EUROPEAN,
-                                        holidays=holidays.holidays)
-        print(pricer_put)
-
-        maturity_date = date(2023, month=3, day=17)
-        vol = vol_tracker.get_annual_term_volatility_forecast(curve.to_years(maturity_date))
-        print('\nVolatility of %s for term %.4f: %.5f' % (TICKER, curve.to_years(maturity_date), vol))
-
-        pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                          ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(pricer)
-        print('\u03c1: %.3f' % pricer.get_rho())
-        pricer = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                    ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(pricer)
-        print('\u03c1: %.3f' % pricer.get_rho())
-        pricer_put = BinomialTreePricer(maturity_date, vol_tracker, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(pricer_put)
-        print('\u03c1: %.3f' % pricer.get_rho())
-
-        impl_vol = .3084
-        print('\nPricing with an implied volatility of %.2f' % impl_vol)
-        pricer = BlackScholesMertonPricer(maturity_date, impl_vol, strike, curve, cur_price,
-                                          ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(pricer)
-        pricer = BinomialTreePricer(maturity_date, impl_vol, strike, curve, cur_price,
-                                    ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(pricer)
-
-        put_pricer = BinomialTreePricer(maturity_date, impl_vol, strike, curve, cur_price, is_call=False,
-                                        ticker=TICKER, dividends=divs, opt_type=OptionType.AMERICAN)
-        print(put_pricer)
-
-        TICKER = '^GSPC'
-
-        # I'll use price changes since 1st Jan 2018 to estimate GARCH(1, 1) ω, α, and β parameters
-        data = web.get_data_yahoo(TICKER, start, end)
-        asset_prices = data['Adj Close']
-
-        # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
-        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-        #       % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
-        # Optimal values for GARCH(1, 1) parameters:
-        # 	ω=0.000005476805, α=0.20899, β=0.76364
-        #
-        # vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
-        #                                                          vol_estimator.beta, asset_prices)
-        vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000005476805, .20899, .76364, asset_prices)
-
-        # Let's get volatility forecast for June 30th 2023 options
-        maturity_date = date(2023, month=6, day=30)
-        vol = vol_tracker.get_annual_term_volatility_forecast(curve.to_years(maturity_date))
-        print('Volatility of %s for term %.4f years: %.5f' % (TICKER, curve.to_years(maturity_date), vol))
-
-        strike = 3900.
-
-        # Expected S&P 500 dividend yield
-        q = .0163
-
-        cur_price = asset_prices[-1]
-        pricer = BlackScholesMertonPricer(maturity_date, vol_tracker, strike, curve, cur_price,
-                                          ticker=TICKER, q=q)
-        print(pricer)
-
-    # except (IndexError, ValueError) as ex:
-    #     print(
-    #         '''Invalid number of arguments or incorrect values. Usage:
-    # {0:s}
-    #             '''.format(sys.argv[0].split(os.sep)[-1]))
-    except:
-        print("Unexpected error: ", sys.exc_info())
-

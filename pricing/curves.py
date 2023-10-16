@@ -166,7 +166,7 @@ class YieldCurve:
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
         assert self.timestamps[0] <= timestamp <= self.timestamps[-1],\
-                'date is in the past or outside this curve\'s terms range'
+            'date is in the past or outside this curve\'s terms range'
         return YieldCurve.year_difference_busdays_based(self.date, adjusted_datetime, holidays)
 
     def to_timedelta(self, delta_in_years):
@@ -339,6 +339,3 @@ class YieldCurve:
         time_add_on /= 24. * 60 * 60 * num_days_in_year
 
         return busday_count / num_days_in_year + time_add_on
-
-
-

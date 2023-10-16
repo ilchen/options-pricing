@@ -46,7 +46,7 @@ class CashFlowDescriptorTestCase(unittest.TestCase):
         # For which we'll need to switch to half-yearly compounding frequency.
         r = libor_swap_rate_hy / 2
         one_dollar_annuity_ = notional * coupon_rate / coupon_frequency\
-                              * (1 - (1 + r) ** -len(cashflow_descr.timeline)) / r
+            * (1 - (1 + r) ** -len(cashflow_descr.timeline)) / r
         self.assertTrue(np.allclose(one_dollar_annuity, one_dollar_annuity_))
 
 
