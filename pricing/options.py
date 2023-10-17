@@ -63,7 +63,9 @@ class OptionsPricer:
         self.T = curve.to_years(self.maturity_date) if holidays is None\
             else curve.to_years_busdays_based(self.maturity_date, holidays)
         # When measuring the lifetime of an option in trading days rather than calendar days,
-        # the maturity correction coefficient will be > 1 most of the time
+        # the maturity correction coefficient will be > 1 most of the time. It is needed to
+        # translate from timescales implied by the option's lifetime to real ones expressed in calendar days
+        # to get correct discount factors and ex-dividend dates. It's needed when pricing using Binomial trees.
         self.maturity_correction_coef = 1. if holidays is None else curve.to_years(self.maturity_date) / self.T
         if self.T == 0.:
             self.T = 8 / (24 * (366 if curves.YieldCurve.is_leap_year(self.maturity_date.year) else 365))

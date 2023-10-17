@@ -85,7 +85,8 @@ class YieldCurve:
         :param dt: a datetime.date object for which the yield needs to be calculated
         """
         timestamp = (datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())).timestamp()
-        assert self.timestamps[0] <= timestamp <= self.timestamps[-1]
+        if not self.timestamps[0] <= timestamp <= self.timestamps[-1]:
+            raise ValueError('dt is in the past or outside this curve\'s terms range')
         return self.ppoly(timestamp).tolist()
 
     def get_discount_factor_for_maturity_date(self, dt):
@@ -99,7 +100,8 @@ class YieldCurve:
         """
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
-        assert self.timestamps[0] <= timestamp <= self.timestamps[-1]
+        if not self.timestamps[0] <= timestamp <= self.timestamps[-1]:
+            raise ValueError('dt is in the past or outside this curve\'s terms range')
         ytm = self.ppoly(timestamp).tolist()
         num_years = YieldCurve.year_difference(self.date, adjusted_datetime.date())
         ytm = self.to_continuous_compounding(ytm)
@@ -165,8 +167,8 @@ class YieldCurve:
         """
         adjusted_datetime = datetime.combine(dt, time()) + (BDay(0) if self.align_on_bd else timedelta())
         timestamp = adjusted_datetime.timestamp()
-        assert self.timestamps[0] <= timestamp <= self.timestamps[-1],\
-            'date is in the past or outside this curve\'s terms range'
+        if not self.timestamps[0] <= timestamp <= self.timestamps[-1]:
+            raise ValueError('date is in the past or outside this curve\'s terms range')
         return YieldCurve.year_difference_busdays_based(self.date, adjusted_datetime, holidays)
 
     def to_timedelta(self, delta_in_years):
@@ -202,7 +204,8 @@ class YieldCurve:
         Returns the annual yield for maturity corresponding to 'timestamp'
         :param timestamp: a POSIX timestamp (number of seconds since 1st Jan 1970 UTC).
         """
-        assert self.timestamps[0] <= timestamp <= self.timestamps[-1]
+        if not self.timestamps[0] <= timestamp <= self.timestamps[-1]:
+            raise ValueError('timestamp is in the past or outside this curve\'s terms range')
         return self.ppoly(timestamp).tolist()
 
     def get_curve_points(self, n):
@@ -212,7 +215,8 @@ class YieldCurve:
 
         :param n: the number of points to return, must be >= 2
         """
-        assert n >= 2
+        if n < 2:
+            raise ValueError('Requested number of curve points must be greater than 1')
         delta = (self.timestamps[-1] - self.timestamps[0]) / (n - 1)
         timestamps = [self.timestamps[0] + i * delta for i in range(n)]
         pairs = list(zip(*[(date.fromtimestamp(timestamp), self.ppoly(timestamp).tolist())
@@ -228,7 +232,8 @@ class YieldCurve:
         :param maturity_repr: an instance of the MaturityRepresentation enum designating the
                               preferred way to express maturities in a returned panda.Series
         """
-        assert n >= 2
+        if n < 2:
+            raise ValueError('Requested number of curve points must be greater than 1')
         delta = (self.timestamps[-1] - self.timestamps[0]) / (n - 1)
         timestamps = [self.timestamps[0] + i * delta for i in range(n)]
         pairs = list(zip(*[(date.fromtimestamp(timestamp) - self.date,
