@@ -1,5 +1,5 @@
 # options-pricing
-Python code for pricing European and American options.
+Python code for pricing European and American options on different asset classes.
 
 The repository contains the following packages :
 * `volatility.parameter_estimators` &mdash; contains classes implementing maximum likelihood methods for estimating
@@ -87,6 +87,13 @@ jupyter notebook euro-equity-index-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Euro Equity Index Options Pricing](https://github.com/ilchen/options-pricing/blob/main/euro-equity-index-options-pricing-example.ipynb).
 
+### Pricing currency options
+I prepared one example notebook for pricing an option on EURUSD:
+```commandline
+jupyter notebook fx-options-pricing-example.ipynb
+```
+A full run of this notebook can be seen [here for Currency Options Pricing](https://github.com/ilchen/options-pricing/blob/main/fx-options-pricing-example.ipynb).
+
 
 You can also run these notebooks in Google cloud. This way you don't need to install anything locally. This takes just a few seconds:
 1. Go to [Google Colaboratory](https://colab.research.google.com/notebooks/intro.ipynb#recent=true) in your browser
@@ -95,4 +102,17 @@ You can also run these notebooks in Google cloud. This way you don't need to ins
 4. Click the search icon
 5. As you open the notebook in Google Colaboratory, please don't forget to uncomment the commands in the first cell
 of the notebook and run them.
-6. Enjoy. 
+6. Enjoy.  
+  In all the notebooks I make use of python code I developed as part of this project or dependencies that are not by
+  default provisioned in Google Colaboratory. When running these notebooks in Colaboratory, it's important to clone this 
+  repository and cd to it. I crated a commented out cell at the beginning of each notebook to make it easier.
+  Please don't forget to uncomment its content and run it first. E.g. here's one from fx-options-pricing-example.ipynb:
+  ```
+  # Uncomment if running in Google Colaboratory, otherwise the import of the curves module in the cell below will fail
+#!git clone -l -s https://github.com/ilchen/options-pricing.git cloned-repo
+#%cd cloned-repo
+
+# Install the latest version of pandas-datareader, yfinance, and pandas-market-calendars
+# !pip install pandas-datareader -U
+# !pip install yfinance -U
+  ```

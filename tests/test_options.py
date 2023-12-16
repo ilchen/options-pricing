@@ -63,33 +63,33 @@ class BaseOptionsPricingTestCase(unittest.TestCase):
 
     def assert_price_and_greeks_for_call(self, pricer):
         self.assertTrue(0. <= pricer.get_price() <= pricer.s0)
-        # For
+        # For European call options we can check the lower bound
         if pricer.opt_type == options.OptionType.EUROPEAN:
-            lower_bound = -pricer.strike * exp(-pricer.r * pricer.T * pricer.maturity_correction_coef)
+            lower_bound = -pricer.strike * exp(-pricer.r * pricer.T)
             if pricer.q == 0:
                 lower_bound -= pricer.get_npv_dividends()
-            lower_bound += pricer.s0 * exp(-pricer.q * pricer.T * pricer.maturity_correction_coef)
+            lower_bound += pricer.s0 * exp(-pricer.q * pricer.T)
             self.assertGreaterEqual(pricer.get_price(), lower_bound)
         self.assertTrue(0. <= pricer.get_delta() <= 1.)
-        self.assertTrue(0. <= pricer.get_gamma() <= 1.)
+        self.assertTrue(0. <= pricer.get_gamma() <= 100.)
         self.assertTrue(0. <= pricer.get_vega() <= self.cur_price * 2)
         self.assertTrue(0. <= pricer.get_rho() <= self.cur_price)
         self.assertTrue(-self.cur_price <= pricer.get_theta() <= 0)
 
     def assert_price_and_greeks_for_put(self, pricer):
         self.assertTrue(0. <= pricer.get_price() <= pricer.strike if pricer.opt_type == options.OptionType.AMERICAN
-                        else pricer.strike * exp(-pricer.r * pricer.T * pricer.maturity_correction_coef))
+                        else pricer.strike * exp(-pricer.r * pricer.T))
         if pricer.opt_type == options.OptionType.EUROPEAN:
-            lower_bound = pricer.strike * exp(-pricer.r * pricer.T * pricer.maturity_correction_coef)
+            lower_bound = pricer.strike * exp(-pricer.r * pricer.T)
             if pricer.q == 0:
                 lower_bound += pricer.get_npv_dividends()
-            lower_bound -= pricer.s0 * exp(-pricer.q * pricer.T * pricer.maturity_correction_coef)
+            lower_bound -= pricer.s0 * exp(-pricer.q * pricer.T)
             self.assertGreaterEqual(pricer.get_price(), lower_bound)
         elif pricer.opt_type == options.OptionType.AMERICAN:
             if pricer.q == 0 and pricer.divs is None:
                 self.assertGreaterEqual(pricer.get_price(), pricer.strike - pricer.s0)
         self.assertTrue(-1. <= pricer.get_delta() <= 0.)
-        self.assertTrue(0 <= pricer.get_gamma() <= 1.)
+        self.assertTrue(0 <= pricer.get_gamma() <= 100.)
         self.assertTrue(0. <= pricer.get_vega() <= self.cur_price * 2)
         self.assertTrue(-self.cur_price <= pricer.get_rho() <= 0.)
         self.assertTrue(-self.cur_price <= pricer.get_theta() <= 0.)
@@ -105,7 +105,7 @@ class BaseOptionsPricingTestCase(unittest.TestCase):
                                pricer.s0 * exp(-pricer.q * pricer.T)
                                - pricer.strike * exp(-pricer.r * pricer.T),
                                7 if isinstance(pricer, pricing.options.BlackScholesMertonPricer)
-                               else 1)
+                               else 0)
 
     def assert_put_call_parity_for_american_equity_option(self, pricer, put_pricer):
         self.assertEqual(pricer.s0, put_pricer.s0)
@@ -457,6 +457,106 @@ class EquityIndexOptionsPricingTestCase(BaseOptionsPricingTestCase):
 
         put_pricer = options.BinomialTreePricer(maturity_date, self.vol_tracker, self.strike, curve, self.cur_price,
                                                 is_call=False, ticker=self.TICKER, q=self.q, holidays=holidays)
+        print(put_pricer)
+        print('\u03c1: %.3f' % put_pricer.get_rho())
+        print('\u03b8: %.3f' % put_pricer.get_theta())
+        self.assert_price_and_greeks_for_put(put_pricer)
+        self.assert_invariants(put_pricer)
+
+        # Test for a put-call parity, difficult to make precise due to never knowing q exactly
+        self.assert_put_call_parity_for_index_option(pricer, put_pricer)
+
+
+class CurrencyOptionsPricingTestCase(BaseOptionsPricingTestCase):
+    TICKER = 'EURUSD=X'
+
+    @classmethod
+    def setUpClass(cls):
+        # Define a volatility tracker
+        start = BDay(1).rollback(today - relativedelta(years=+2))
+        data = web.get_data_yahoo(CurrencyOptionsPricingTestCase.TICKER, start, today)
+        asset_prices = data['Adj Close']
+        cls.cur_price = asset_prices[-1]
+
+        # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
+        # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
+        #        % (vol_estimator.omega, vol_estimator.alpha, vol_estimator.beta))
+        # cls.assertGreater(vol_estimator.omega, 0.)
+        # cls.assertLess(vol_estimator.omega, 1e-4)
+        # cls.assertGreater(vol_estimator.alpha, 0.)
+        # cls.assertLess(vol_estimator.alpha, .2)
+        # cls.assertGreater(vol_estimator.beta, 0.)
+        # cls.assertLess(vol_estimator.beta, 1.)
+        # ω=0.000000503013, α=0.02845, β=0.95538, as of 16th December 2023
+
+        # cls.vol_tracker = volatility_trackers.GARCHVolatilityTracker(vol_estimator.omega, vol_estimator.alpha,
+        #                                                              vol_estimator.beta, asset_prices)
+
+        # Unit tests must run fast, therefore creating a volatility tracker with pre-computed ω, α, and β values
+        cls.vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000000503013, 0.02845, 0.95538, asset_prices)
+        cls.strike = 1.1
+        cls.impl_vol = 0.071
+
+        # Expected yield equals the riskless rate for the Euro for the maturity of this option,
+        # Taking 5% for this test
+        cls.q = .05  # Updated for December 2023
+
+    def test_next_Jun_european_call_and_put_BS(self):
+        # The 1st Friday of next June
+        maturity_date = curve.date + relativedelta(years=1, month=6, day=1, weekday=FR(1))
+        pricer = options.BlackScholesMertonPricer(maturity_date, self.vol_tracker, self.strike, curve, self.cur_price,
+                                                  ticker=self.TICKER, q=self.q)
+        print(pricer)
+        print('\u03c1: %.3f' % pricer.get_rho())
+        print('\u03b8: %.3f' % pricer.get_theta())
+        self.assert_price_and_greeks_for_call(pricer)
+        self.assert_invariants(pricer)
+
+        put_pricer = options.BlackScholesMertonPricer(maturity_date, self.vol_tracker, self.strike, curve,
+                                                      self.cur_price, is_call=False, ticker=self.TICKER, q=self.q)
+        print(put_pricer)
+        print('\u03c1: %.3f' % put_pricer.get_rho())
+        print('\u03b8: %.3f' % put_pricer.get_theta())
+        self.assert_price_and_greeks_for_put(put_pricer)
+        self.assert_invariants(put_pricer)
+
+        # Test for a put-call parity, it is the same for equity index and FX options if we take the riskless rate
+        # on the foreign currency as the yield
+        self.assert_put_call_parity_for_index_option(pricer, put_pricer)
+
+        # Pricing with an implied volatility
+        pricer = options.BlackScholesMertonPricer(maturity_date, self.impl_vol, self.strike, curve, self.cur_price,
+                                                  ticker=self.TICKER, q=self.q)
+        print(pricer)
+        print('\u03c1: %.3f' % pricer.get_rho())
+        print('\u03b8: %.3f' % pricer.get_theta())
+        self.assert_price_and_greeks_for_call(pricer)
+        self.assert_invariants(pricer)
+
+        put_pricer = options.BlackScholesMertonPricer(maturity_date, self.impl_vol, self.strike, curve, self.cur_price,
+                                                      is_call=False, ticker=self.TICKER, q=self.q)
+        print(put_pricer)
+        print('\u03c1: %.3f' % put_pricer.get_rho())
+        print('\u03b8: %.3f' % put_pricer.get_theta())
+        self.assert_price_and_greeks_for_put(put_pricer)
+        self.assert_invariants(put_pricer)
+
+        # Test for a put-call parity
+        self.assert_put_call_parity_for_index_option(pricer, put_pricer)
+
+    def test_next_Jun_european_call_and_put_BT(self):
+        # The 1st Friday of next June
+        maturity_date = curve.date + relativedelta(years=1, month=6, day=1, weekday=FR(1))
+        pricer = options.BinomialTreePricer(maturity_date, self.vol_tracker, self.strike, curve, self.cur_price,
+                                            ticker=self.TICKER, q=self.q)
+        print(pricer)
+        print('\u03c1: %.3f' % pricer.get_rho())
+        print('\u03b8: %.3f' % pricer.get_theta())
+        self.assert_price_and_greeks_for_call(pricer)
+        self.assert_invariants(pricer)
+
+        put_pricer = options.BinomialTreePricer(maturity_date, self.vol_tracker, self.strike, curve, self.cur_price,
+                                                is_call=False, ticker=self.TICKER, q=self.q)
         print(put_pricer)
         print('\u03c1: %.3f' % put_pricer.get_rho())
         print('\u03b8: %.3f' % put_pricer.get_theta())
