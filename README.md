@@ -94,7 +94,7 @@ jupyter notebook fx-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Currency Options Pricing](https://github.com/ilchen/options-pricing/blob/main/fx-options-pricing-example.ipynb).
 
-
+## How to run in Google cloud
 You can also run these notebooks in Google cloud. This way you don't need to install anything locally. This takes just a few seconds:
 1. Go to [Google Colaboratory](https://colab.research.google.com/notebooks/intro.ipynb#recent=true) in your browser
 2. In the modal window that appears select `GitHub`
