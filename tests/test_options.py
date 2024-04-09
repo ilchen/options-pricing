@@ -32,7 +32,7 @@ def setUpModule():
 
     # Constructing the riskless yield curve based on the current fed funds rate and treasury yields
     data = web.get_data_fred(
-        ['AMERIBOR', 'AMBOR1W', 'AMBOR1M', 'AMBOR3M', 'AMBOR6M', 'AMBOR1Y', 'AMBOR2Y'],
+        ['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30'],
         today - BDay(3), today)
     data.dropna(inplace=True)
 
@@ -41,17 +41,23 @@ def setUpModule():
     # Convert to percentage points
     data /= 100.
 
-    offsets = [relativedelta(), relativedelta(weeks=+1), relativedelta(months=+1), relativedelta(months=+3),
-               relativedelta(months=+6),
-               relativedelta(years=+1), relativedelta(years=+2)]
+    # Some adjustments are required to bring FED Funds rate to the same day count convention and compounding frequency
+    # as treasury yields (actual/actual with semi-annual compounding):
+    # 1. https://www.federalreserve.gov/releases/h15/default.htm -> day count convention for Fed Funds Rate needs
+    # to be changed to actual/actual
+    # 2. Conversion to APY: https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rates-frequently-asked-questions
+    data.DFF *= (366 if curves.YieldCurve.is_leap_year(cur_date_curve.year) else 365) / 360  # to x/actual
+    data.DFF = 2 * (np.sqrt(data.DFF + 1) - 1)
 
-    # Some adjustments are required to bring AMERIBOR rates to an actual/actual day count convention
-    data *= 365 / 360  # to x/actual
+    offsets = [relativedelta(), relativedelta(months=+1), relativedelta(months=+3), relativedelta(months=+6),
+               relativedelta(years=+1), relativedelta(years=+2), relativedelta(years=+3), relativedelta(years=+5),
+               relativedelta(years=+7), relativedelta(years=+10), relativedelta(years=+20),
+               relativedelta(years=+30)]
 
     # Define the riskless yield curve
     global curve, holidays
     curve = curves.YieldCurve(today, offsets, data[cur_date_curve:cur_date_curve + BDay()].to_numpy()[0, :],
-                              compounding_freq=1)
+                              compounding_freq=2)
     # Define the trading days calendar for more accurate pricing
     holidays = mcal.get_calendar('NYSE').holidays().holidays
 
