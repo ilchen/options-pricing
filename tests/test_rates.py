@@ -5,8 +5,6 @@ import numpy as np
 
 from dateutil.relativedelta import relativedelta
 
-import yfinance as yfin
-
 from pricing import futures_rates
 
 
@@ -53,8 +51,6 @@ class CashFlowDescriptorTestCase(unittest.TestCase):
 class CME10YearTNoteFuturesTestCase(unittest.TestCase):
     def setUp(self):
         self.past_date = date(2023, 10, 1)
-        # A kludge for pandas-datareader not being able to cope with latest Yahoo-Finance changes
-        yfin.pdr_override()
 
     def test_ticker_symbols(self):
         next_4_expiry_dates = (date(2023, 12, 1), date(2024, 3, 1), date(2024, 6, 1), date(2024, 9, 1))

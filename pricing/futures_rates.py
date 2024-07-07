@@ -5,7 +5,7 @@ from math import exp
 import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import BDay, QuarterBegin
-import pandas_datareader.data as web
+import yfinance as yfin
 
 from scipy.optimize import minimize_scalar
 
@@ -19,6 +19,7 @@ class CMEFixedIncomeFuturesRates:
 
     # CME's convention for months starting from January
     MONTHS = ['F', 'G', 'H', 'J', 'K', 'M', 'N', 'Q', 'U', 'V', 'X', 'Z']
+    ADJ_CLOSE = 'Adj Close'
 
     def __init__(self, cur_date):
         """
@@ -130,7 +131,10 @@ class CMEFedFundsFuturesRates(CMEFixedIncomeFuturesRates):
         """
         tickers, months = list(zip(*self.get_next_n_months_tickers(n)))
         dt = dt.date() if isinstance(dt, (datetime, pd.Timestamp)) else dt if isinstance(dt, date) else self.cur_date
-        series = web.get_data_yahoo(tickers, dt - BDay(3), dt).loc[:, 'Adj Close'].iloc[-1]
+        series = yfin.Tickers(list(tickers)).download(start=dt - BDay(3), end=dt,  auto_adjust=False, actions=False,
+                                                      ignore_tz=True).loc[:, self.ADJ_CLOSE]
+        if len(series) > 0:
+            series = series.iloc[-1]
         return ((100. - series.reindex(tickers)) / 100.).set_axis(pd.DatetimeIndex(months))
 
 
@@ -151,7 +155,10 @@ class CME10YearTNoteFuturesYields(CMEFixedIncomeFuturesRates):
         """
         tickers, months = list(zip(*self.get_next_n_quarter_tickers(n)))
         dt = dt.date() if isinstance(dt, (datetime, pd.Timestamp)) else dt if isinstance(dt, date) else self.cur_date
-        series = web.get_data_yahoo(tickers, dt - BDay(3), dt).loc[:, 'Adj Close'].iloc[-1]
+        series = yfin.Tickers(list(tickers)).download(start=dt - BDay(3), end=dt,  auto_adjust=False, actions=False,
+                                                      ignore_tz=True).loc[:, self.ADJ_CLOSE]
+        if len(series) > 0:
+            series = series.iloc[-1]
         series = series.reindex(tickers).set_axis(pd.DatetimeIndex(months)).dropna()
         series2 = series.apply(self.tnote_price_to_yield)
         return self.from_continuous_compound_to_semiannual(series2)
@@ -254,11 +261,9 @@ if __name__ == "__main__":
     from datetime import date, datetime
 
     from dateutil.relativedelta import relativedelta
-    import pandas_datareader.data as web
     import numpy as np
     import yfinance as yfin
 
-    yfin.pdr_override()
 
     try:
         locale.setlocale(locale.LC_ALL, '')
@@ -274,7 +279,7 @@ if __name__ == "__main__":
         print('Fed Funds from {:%Y-%m-%d}:'.format(start))
         rates = inferrer.get_rates_for_next_n_months(15)
         print(rates)
-        past_date = date(2022, 12, 22)
+        past_date = start - relativedelta(months=+3)
         print('Fed Funds from {:%Y-%m-%d}:'.format(past_date))
         rates = inferrer.get_rates_for_next_n_months(15, past_date)
         print(rates)
