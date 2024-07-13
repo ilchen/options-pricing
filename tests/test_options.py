@@ -23,7 +23,6 @@ global today, curve, holidays
 
 def setUpModule():
     global today
-    yfin.pdr_override()
     today = date.today()
 
     # Offsetting to the next business day if today is not a business day, not doing it would artificially raise
@@ -146,7 +145,8 @@ class NonDivPayingEquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
     def setUpClass(cls):
         # Define a volatility tracker
         start = BDay(1).rollback(today - relativedelta(years=+2))
-        data = web.get_data_yahoo(NonDivPayingEquityOptionsPricingTestCase.TICKER, start, today)
+        data = yfin.Ticker(NonDivPayingEquityOptionsPricingTestCase.TICKER).history(start=start, actions=False,
+                                                                                    auto_adjust=False)
         asset_prices = data['Adj Close']
         cls.cur_price = asset_prices[-1]
 
@@ -235,7 +235,7 @@ class EquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
     def setUpClass(cls):
         # Define a volatility tracker
         start = BDay(1).rollback(today - relativedelta(years=+2))
-        data = web.get_data_yahoo(EquityOptionsPricingTestCase.TICKER, start, today)
+        data = yfin.Ticker(EquityOptionsPricingTestCase.TICKER).history(start=start, actions=False, auto_adjust=False)
         asset_prices = data['Adj Close']
         cls.cur_price = asset_prices[-1]
 
@@ -361,7 +361,8 @@ class EquityIndexOptionsPricingTestCase(BaseOptionsPricingTestCase):
     def setUpClass(cls):
         # Define a volatility tracker
         start = BDay(1).rollback(today - relativedelta(years=+2))
-        data = web.get_data_yahoo(EquityIndexOptionsPricingTestCase.TICKER, start, today)
+        data = yfin.Ticker(EquityIndexOptionsPricingTestCase.TICKER).history(start=start, actions=False,
+                                                                             auto_adjust=False)
         asset_prices = data['Adj Close']
         cls.cur_price = asset_prices[-1]
 
@@ -480,7 +481,7 @@ class CurrencyOptionsPricingTestCase(BaseOptionsPricingTestCase):
     def setUpClass(cls):
         # Define a volatility tracker
         start = BDay(1).rollback(today - relativedelta(years=+2))
-        data = web.get_data_yahoo(CurrencyOptionsPricingTestCase.TICKER, start, today)
+        data = yfin.Ticker(CurrencyOptionsPricingTestCase.TICKER).history(start=start, actions=False, auto_adjust=False)
         asset_prices = data['Adj Close']
         cls.cur_price = asset_prices[-1]
 
