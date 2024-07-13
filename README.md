@@ -107,5 +107,6 @@ of the notebook and run them.
 
 # Install the latest version of pandas-datareader, yfinance, and pandas-market-calendars
 # !pip install pandas-datareader -U
+# !pip install eurostat -U
 # !pip install yfinance -U
   ```
