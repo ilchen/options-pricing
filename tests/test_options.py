@@ -148,7 +148,7 @@ class NonDivPayingEquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
         data = yfin.Ticker(NonDivPayingEquityOptionsPricingTestCase.TICKER).history(start=start, actions=False,
                                                                                     auto_adjust=False)
         asset_prices = data['Adj Close']
-        cls.cur_price = asset_prices[-1]
+        cls.cur_price = asset_prices.iloc[-1]
 
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
@@ -237,7 +237,7 @@ class EquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
         start = BDay(1).rollback(today - relativedelta(years=+2))
         data = yfin.Ticker(EquityOptionsPricingTestCase.TICKER).history(start=start, actions=False, auto_adjust=False)
         asset_prices = data['Adj Close']
-        cls.cur_price = asset_prices[-1]
+        cls.cur_price = asset_prices.iloc[-1]
 
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
@@ -260,7 +260,7 @@ class EquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
         # it falls on the second Friday of that month.
         idx = (pd.date_range(last_divs.index[0].date(), freq='WOM-1FRI', periods=30)[::3])
         idx = idx.map(lambda dt: dt if dt.day >= 5 else dt + BDay(5))
-        cls.divs = pd.Series([last_divs[0]] * len(idx), index=idx,
+        cls.divs = pd.Series([last_divs.iloc[0]] * len(idx), index=idx,
                              name=EquityOptionsPricingTestCase.TICKER + ' Dividends')
 
     def test_next_Jan_american_call_BS(self):
@@ -364,7 +364,7 @@ class EquityIndexOptionsPricingTestCase(BaseOptionsPricingTestCase):
         data = yfin.Ticker(EquityIndexOptionsPricingTestCase.TICKER).history(start=start, actions=False,
                                                                              auto_adjust=False)
         asset_prices = data['Adj Close']
-        cls.cur_price = asset_prices[-1]
+        cls.cur_price = asset_prices.iloc[-1]
 
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
@@ -483,7 +483,7 @@ class CurrencyOptionsPricingTestCase(BaseOptionsPricingTestCase):
         start = BDay(1).rollback(today - relativedelta(years=+2))
         data = yfin.Ticker(CurrencyOptionsPricingTestCase.TICKER).history(start=start, actions=False, auto_adjust=False)
         asset_prices = data['Adj Close']
-        cls.cur_price = asset_prices[-1]
+        cls.cur_price = asset_prices.iloc[-1]
 
         # vol_estimator = parameter_estimators.GARCHParameterEstimator(asset_prices)
         # print('Optimal values for GARCH(1, 1) parameters:\n\tω=%.12f, α=%.5f, β=%.5f'

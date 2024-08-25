@@ -137,7 +137,7 @@ class GARCHParameterEstimator(ParameterEstimator):
         warnings.filterwarnings('ignore', message='delta_grad == 0.0. Check if the approximated function is linear.')
 
         res = minimize(objective_func, x0 * self.GARCH_PARAM_MULTIPLIERS, method='trust-constr',
-                       bounds=bounds, constraints=constr)#, hess=lambda x: np.zeros((len(x0), len(x0))))
+                       bounds=bounds, constraints=constr)  # hess=lambda x: np.zeros((len(x0), len(x0))))
         if res.success:
             ω, α, β = res.x / self.GARCH_PARAM_MULTIPLIERS
             print('Objective function: %.5f after %d iterations' % (-res.fun, res.nit))
