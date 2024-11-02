@@ -382,11 +382,11 @@ class EquityIndexOptionsPricingTestCase(BaseOptionsPricingTestCase):
 
         # Unit tests must run fast, therefore creating a volatility tracker with pre-computed ω, α, and β values
         cls.vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000001906502, 0.06303, 0.92557, asset_prices)
-        cls.strike = 3900.
-        cls.impl_vol = 0.22
+        cls.strike = 4900.
+        cls.impl_vol = 0.20
 
         # Expected S&P 500 dividend yield
-        cls.q = .017049  # Updated for October 2023
+        cls.q = .014049  # Updated for October 2023
 
     def test_next_Mar_european_call_and_put_BS(self):
         # The 3rd Friday of next March
