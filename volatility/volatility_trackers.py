@@ -1,7 +1,7 @@
 # coding: utf-8
 import numpy as np
 import pandas as pd
-import pandas_datareader.data as web
+import yfinance as yfin
 from pandas.tseries.offsets import BDay
 from math import sqrt, log, exp
 
@@ -37,10 +37,11 @@ class VolatilityTracker:
         if asset_prices_series is None:
             if start is None or end is None or asset is None:
                 raise ValueError("Neither asset_price_series nor (start, end, asset) arguments are provided")
-            data = web.get_data_yahoo(asset, start, end)
+            data = yfin.download(asset, start=start, end=end, ignore_tz=True)
             asset_prices_series = data['Adj Close']
         # Dropping the first row as it doesn't contain a daily return value
-        self.data = pd.DataFrame({self.CLOSE: asset_prices_series, self.DAILY_RETURN: asset_prices_series.pct_change()},
+        self.data = pd.DataFrame({self.CLOSE: asset_prices_series,
+                                  self.DAILY_RETURN: asset_prices_series.pct_change(fill_method=None)},
                                  index=asset_prices_series.index).iloc[1:]
         # Essentially only self.data[self.VARIANCE].iloc[1] needs to be set to self.data.ui.iloc[0]**2
         self.data[self.VARIANCE] = self.data.ui.iloc[0] ** 2

@@ -1,7 +1,7 @@
 # coding: utf-8
 import numpy as np
 import pandas as pd
-import pandas_datareader.data as web
+import yfinance as yfin
 import datetime
 from scipy.optimize import minimize
 from scipy.optimize import minimize_scalar
@@ -42,7 +42,7 @@ class ParameterEstimator:
         if asset_prices_series is None:
             if start is None or end is None or asset is None:
                 raise ValueError("Neither asset_price_series nor (start, end, asset) arguments are provided")
-            data = web.get_data_yahoo(asset, start, end)
+            data = yfin.download(asset, start=start, end=end, ignore_tz=True)
             asset_prices_series = data['Adj Close']
 
         # Dropping the first row as it doesn't contain a daily return value
@@ -60,7 +60,7 @@ class ParameterEstimator:
             for i in range(self.number_assets):
                 uis = self.data.iloc[:,i*3].dropna().pct_change()
                 self.data.insert(loc=i*3+1, column=self.data.columns[i*3]+self.DAILY_RETURN, value=uis)
-                self.data.insert(loc=i*3+2, column=self.data.columns[i*3]+self.VARIANCE, value=uis[1] ** 2)
+                self.data.insert(loc=i*3+2, column=self.data.columns[i*3]+self.VARIANCE, value=uis.iloc[1] ** 2)
             self.data = self.data.iloc[1:]
 
             # Get rid of rows whose percentage changes are infinite
@@ -106,18 +106,18 @@ class GARCHParameterEstimator(ParameterEstimator):
             # Catering to a case where some series in a DataFrame may have NaNs due to different trading days
             sum = 0.
             for j in range(self.number_assets):
-                df_copy = self.data.iloc[:, j*3+1:j*3+3]
+                df_copy = self.data
                 if self.number_assets > 1:
                     df_copy = df_copy.dropna()
                 for i in range(2, len(df_copy)):
                     # Skipping values that would lead to a propagation of infinity
-                    if np.isinf(df_copy.iloc[i-1, 0]):
-                        df_copy.iloc[i, 1] = df_copy.iloc[i-1, 1]
+                    if np.isinf(df_copy.iloc[i-1, j*3+1]):
+                        df_copy.iloc[i, j*3+2] = df_copy.iloc[i-1, j*3+2]
                     else:
-                        df_copy.iloc[i, 1] = ω + α * df_copy.iloc[i-1, 0] ** 2 + β * df_copy.iloc[i-1, 1]
+                        df_copy.iloc[i, j*3+2] = ω + α * df_copy.iloc[i-1, j*3+1] ** 2 + β * df_copy.iloc[i-1, j*3+2]
                 # No need to take the first variance value into account as it doesn't depend on ω, α, β,
                 # hence starting from the second row
-                sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
+                sum -= (-np.log(df_copy.iloc[2:, j*3+2]) - df_copy.iloc[2:, j*3+1] ** 2 / df_copy.iloc[2:, j*3+2]).sum()
 
             return sum
 
@@ -349,7 +349,7 @@ if __name__ == "__main__":
         end = datetime.datetime(2010, 7, 27)
         start = datetime.datetime(2019, 12, 15)
         end = datetime.datetime.today()
-        data = web.get_data_yahoo('GBPUSD=X', start, end)
+        data = yfin.download('GBPUSD=X', start=start, end=end, ignore_tz=True)
         asset_prices_series = data['Adj Close']
         ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='EURUSD=X')
         print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
@@ -363,9 +363,8 @@ if __name__ == "__main__":
         ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='JPYUSD=X')
         print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
                 'JPYUSD=X', ch10_ewma_md.lamda))
-        # data = web.get_data_yahoo(['^GSPC', 'BTC-USD'], start, end)
-        # asset_prices = data['Adj Close']
-        ch10_ewma = GARCHParameterEstimator(asset_prices_series)
+
+        ch10_ewma = EWMAParameterEstimator(asset_prices_series)
         print('Optimal value for λ: %.5f' % ch10_ewma.lamda)
         ch10_garch = GARCHParameterEstimator(asset_prices_series)
         print('Optimal values for GARCH parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
