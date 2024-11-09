@@ -43,7 +43,7 @@ class ParameterEstimator:
             if start is None or end is None or asset is None:
                 raise ValueError("Neither asset_price_series nor (start, end, asset) arguments are provided")
             data = yfin.download(asset, start=start, end=end, ignore_tz=True)
-            asset_prices_series = data['Adj Close']
+            asset_prices_series = data[('Adj Close', asset)]
 
         # Dropping the first row as it doesn't contain a daily return value
         if isinstance(asset_prices_series, pd.Series):
@@ -105,10 +105,10 @@ class GARCHParameterEstimator(ParameterEstimator):
 
             # Catering to a case where some series in a DataFrame may have NaNs due to different trading days
             sum = 0.
+            df_copy = self.data
+            if self.number_assets > 1:
+                df_copy = df_copy.dropna()
             for j in range(self.number_assets):
-                df_copy = self.data
-                if self.number_assets > 1:
-                    df_copy = df_copy.dropna()
                 for i in range(2, len(df_copy)):
                     # Skipping values that would lead to a propagation of infinity
                     if np.isinf(df_copy.iloc[i-1, j*3+1]):
@@ -269,15 +269,17 @@ class EWMAParameterEstimator(ParameterEstimator):
 
             # Catering to a case where some series in a DataFrame may have NaNs due to different trading days
             sum = 0.
+            df_copy = self.data
+            if self.number_assets > 1:
+                df_copy = df_copy.dropna()
             for j in range(self.number_assets):
-                df_copy = self.data.iloc[:, j*3+1:j*3+3].dropna()
                 for i in range(2, len(df_copy)):
                     # Skipping values that would lead to a propagation of infinity
-                    if np.isinf(df_copy.iloc[i - 1, 0]):
+                    if np.isinf(df_copy.iloc[i - 1, j*3+1]):
                         df_copy.iloc[i, 1] = df_copy.iloc[i-1, 1]
                     else:
-                        df_copy.iloc[i, 1] = (1 - λ) * df_copy.iloc[i-1, 0] ** 2 + λ * df_copy.iloc[i-1, 1]
-                sum -= (-np.log(df_copy.iloc[2:, 1]) - df_copy.iloc[2:, 0] ** 2 / df_copy.iloc[2:, 1]).sum()
+                        df_copy.iloc[i, j*3+2] = (1 - λ) * df_copy.iloc[i-1, j*3+1] ** 2 + λ * df_copy.iloc[i-1, j*3+2]
+                sum -= (-np.log(df_copy.iloc[2:, j*3+2]) - df_copy.iloc[2:, j*3+1] ** 2 / df_copy.iloc[2:, j*3+2]).sum()
 
             # sum = 0.
             # for j in range(self.number_assets):
@@ -338,42 +340,3 @@ class EWMAMinimumDifferenceParameterEstimator(ParameterEstimator):
             self.lamda = res.x
         else:
             raise ValueError("Optimizing the objective function with the passed asset price changes didn't succeed")
-
-
-if __name__ == "__main__":
-    import sys
-    import os
-
-    try:
-        start = datetime.datetime(2005, 7, 27)
-        end = datetime.datetime(2010, 7, 27)
-        start = datetime.datetime(2019, 12, 15)
-        end = datetime.datetime.today()
-        data = yfin.download('GBPUSD=X', start=start, end=end, ignore_tz=True)
-        asset_prices_series = data['Adj Close']
-        ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='EURUSD=X')
-        print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
-                'EURUSD=X', ch10_ewma_md.lamda))
-        ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='CADUSD=X')
-        print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
-                'CADUSD=X', ch10_ewma_md.lamda))
-        ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='GBPUSD=X')
-        print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
-                'GBPUSD=X', ch10_ewma_md.lamda))
-        ch10_ewma_md = EWMAMinimumDifferenceParameterEstimator(start=start, end=end, asset='JPYUSD=X')
-        print('Optimal value for λ using the minimum difference method for \'%s\': %.5f' % (
-                'JPYUSD=X', ch10_ewma_md.lamda))
-
-        ch10_ewma = EWMAParameterEstimator(asset_prices_series)
-        print('Optimal value for λ: %.5f' % ch10_ewma.lamda)
-        ch10_garch = GARCHParameterEstimator(asset_prices_series)
-        print('Optimal values for GARCH parameters:\n\tω=%.12f, α=%.5f, β=%.5f'
-              % (ch10_garch.omega, ch10_garch.alpha, ch10_garch.beta))
-
-    except (IndexError, ValueError) as ex:
-        print(
-            '''Invalid number of arguments or incorrect values. Usage:
-    {0:s} 
-                '''.format(sys.argv[0].split(os.sep)[-1]))
-    except:
-        print("Unexpected error: ", sys.exc_info())
