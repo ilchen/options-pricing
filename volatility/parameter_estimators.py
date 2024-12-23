@@ -42,7 +42,7 @@ class ParameterEstimator:
         if asset_prices_series is None:
             if start is None or end is None or asset is None:
                 raise ValueError("Neither asset_price_series nor (start, end, asset) arguments are provided")
-            data = yfin.download(asset, start=start, end=end, ignore_tz=True)
+            data = yfin.download(asset, start=start, end=end, ignore_tz=True, auto_adjust=False)
             asset_prices_series = data[('Adj Close', asset)]
 
         # Dropping the first row as it doesn't contain a daily return value
