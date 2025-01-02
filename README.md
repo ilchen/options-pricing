@@ -32,10 +32,10 @@ The repository contains the following packages:
   for the correctness of calculated greeks, the put-call parity and do many additional checks.
 
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
-[Eurostat](https://ec.europa.eu/eurostat/web/main/data/database), and [Yahoo-Finance](https://finance.yahoo.com).
+[ECB](https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html), and [Yahoo-Finance](https://finance.yahoo.com).
 I use the following libraries for working with these datasets:
 * [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html) for FRED data
-* [eurostat](https://pypi.org/project/eurostat/) for Eurostat data
+* [sdmx](https://sdmx1.readthedocs.io/en/latest/) for the ECB data
 * [yfinance](https://pypi.org/project/yfinance/) for Yahoo-Finance data
 
 ## Requirements
@@ -107,6 +107,6 @@ of the notebook and run them.
 
 # Install the latest version of pandas-datareader, yfinance, and pandas-market-calendars
 # !pip install pandas-datareader -U
-# !pip install eurostat -U
+# !pip install sdmx1 -U
 # !pip install yfinance -U
   ```

@@ -96,7 +96,8 @@ class BaseOptionsPricingTestCase(unittest.TestCase):
         self.assertTrue(-1. <= pricer.get_delta() <= 0.)
         self.assertTrue(0 <= pricer.get_gamma() <= 100.)
         self.assertTrue(0. <= pricer.get_vega() <= self.cur_price * 2)
-        self.assertTrue(-self.cur_price <= pricer.get_rho() <= 0.)
+        # Rho can be rather negative for a deep in the money option
+        self.assertTrue(-self.cur_price * 2 <= pricer.get_rho() <= 0.)
         self.assertTrue(-self.cur_price <= pricer.get_theta() <= 0.)
 
     def assert_put_call_parity_for_index_option(self, pricer, put_pricer):
