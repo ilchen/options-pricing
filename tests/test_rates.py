@@ -78,6 +78,14 @@ class CME10YearTNoteFuturesTestCase(unittest.TestCase):
 
 class ParYieldToSpotRateConverterTestCase(unittest.TestCase):
     def test_par_yield_to_spot(self):
+        """
+        Tests the par_yields_to_spot function using example data inspired by
+        <a href="https://finexamhelp123.wpengine.com/par-curve-spot-curve-and-forward-curve/">this article</a>.
+
+        The input par yields and maturities are used to derive spot rates, which
+        are then compared to expected values to validate correctness.
+        """
+
         maturities = [1/2, 1, 1.5, 2, 2.5, 3]
         spot_rates_dict = par_yield_converter.par_yields_to_spot(
             [.02, .024, .0276, .03084, .033756, .03638], maturities, 2)
@@ -88,7 +96,10 @@ class ParYieldToSpotRateConverterTestCase(unittest.TestCase):
     def test_par_yield_to_spot_with_interpolation(self):
         """
         This test case is based on real Treasury Yields at constant maturities data from 10th July 2025 provided
-        by the FRED
+        by the FRED.
+
+        The input par yields and maturities obtained from FRED on 13th July 2025 are used to derive spot rates, which
+        are then compared to expected values to validate correctness.
         """
         maturities = [0, 1 / 12, 1 / 4, 1 / 2, 1, 2, 3, 5, 7, 10, 20, 30]
         spot_rates_dict = par_yield_converter.par_yields_to_spot(
