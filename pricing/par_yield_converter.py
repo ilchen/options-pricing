@@ -9,7 +9,7 @@ from scipy.interpolate import CubicSpline
 
 PAR_VALUE = 100.
 
-@staticmethod
+#@staticmethod
 def par_yields_to_spot(par_yields, maturities, coupon_frequency):
     """
     Converts par yields to spot rates using cubic spline interpolation and bootstrapping.
