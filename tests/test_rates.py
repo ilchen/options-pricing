@@ -5,8 +5,7 @@ import numpy as np
 
 from dateutil.relativedelta import relativedelta
 
-from pricing import futures_rates
-
+from pricing import futures_rates, par_yield_converter
 
 class CashFlowDescriptorTestCase(unittest.TestCase):
     def test_duration(self):
@@ -34,11 +33,11 @@ class CashFlowDescriptorTestCase(unittest.TestCase):
         coupon_frequency = 2  # semiannual payments
         libor_swap_rate = .06  # continuous compounding
         libor_swap_rate_hy = 2 * (sqrt(exp(libor_swap_rate)) - 1)
-        T = 5  # it's a five-year bond
+        t = 5  # it's a five-year bond
         notional = 100
 
-        cashflow_descr = futures_rates.CashflowDescriptor(coupon_rate, coupon_frequency, notional, T)
-        one_dollar_annuity = cashflow_descr.pv_all_cashflows(libor_swap_rate) - notional * exp(-libor_swap_rate * T)
+        cashflow_descr = futures_rates.CashflowDescriptor(coupon_rate, coupon_frequency, notional, t)
+        one_dollar_annuity = cashflow_descr.pv_all_cashflows(libor_swap_rate) - notional * exp(-libor_swap_rate * t)
 
         # Or we can price it using the standard formula for annuity.
         # For which we'll need to switch to half-yearly compounding frequency.
@@ -75,6 +74,31 @@ class CME10YearTNoteFuturesTestCase(unittest.TestCase):
         # Expecting yields to be positive and less than 6%
         self.assertTrue(((tr10_yields < .06) & (tr10_yields > 0.)).all())
         self.assertTrue(((tr10_yields_1_week_ago < .06) & (tr10_yields_1_week_ago > 0.)).all())
+
+
+class ParYieldToSpotRateConverterTestCase(unittest.TestCase):
+    def test_par_yield_to_spot(self):
+        maturities = [1/2, 1, 1.5, 2, 2.5, 3]
+        spot_rates_dict = par_yield_converter.par_yields_to_spot(
+            [.02, .024, .0276, .03084, .033756, .03638], maturities, 2)
+        spot_rates = np.asarray([spot_rates_dict[maturity] for maturity in maturities], dtype=np.float64)
+        expected_spot_rates = np.asarray([.02, .02402405, .02766857, .03097376, .03397442, .03670043], dtype=np.float64)
+        self.assertTrue(np.allclose(spot_rates, expected_spot_rates))
+
+    def test_par_yield_to_spot_with_interpolation(self):
+        """
+        This test case is based on real Treasury Yields at constant maturities data from 10th July 2025 provided
+        by the FRED
+        """
+        maturities = [0, 1 / 12, 1 / 4, 1 / 2, 1, 2, 3, 5, 7, 10, 20, 30]
+        spot_rates_dict = par_yield_converter.par_yields_to_spot(
+            [.04342985, .0436, .0442, .0431, .0407, .0386, .0382, .0393, .0412, .0435, .0487, .0486],
+            maturities, 2)
+        spot_rates = np.asarray([spot_rates_dict[maturity] for maturity in maturities], dtype=np.float64)
+        expected_spot_rates = np.asarray([.04342985, .0436, .0442, .0431, .04067560912311485, .03854709732599071,
+                                          .03815107195441536, .039351797004421485, .041459146720940865,
+                                          .04410230023109163, .05090930831088958, .049508740485613156], dtype=np.float64)
+        self.assertTrue(np.allclose(spot_rates, expected_spot_rates))
 
 
 if __name__ == '__main__':
