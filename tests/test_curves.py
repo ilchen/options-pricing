@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from datetime import date, datetime, time
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import FR
@@ -37,6 +38,12 @@ class YieldCurveTestCase(unittest.TestCase):
             self.curve.to_datetime(t)
         self.assertTrue('date is in the past or outside this curve' in str(context.exception))
 
+    def test_curve_points_conversion(self):
+        self.assertTrue(np.isclose(self.curve.get_curve_points(120), .02).all())
+        self.assertTrue(np.isclose(self.curve.get_curve_points(120, 2), .01990098876724).all())
+        self.assertTrue(np.isclose(self.curve.get_curve_points(120, 4), .019851726292815).all())
+        self.assertTrue(np.isclose(self.curve.get_curve_points(120, 12), .01981897562304269).all())
+        self.assertTrue(np.isclose(self.curve.get_curve_points(120, 0), .0198026272962).all())
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main
