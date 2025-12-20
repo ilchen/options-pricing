@@ -1,5 +1,7 @@
 import numpy as np
+import pandas as pd
 from scipy.interpolate import CubicSpline
+import math
 
 
 # class ParYieldConverter:
@@ -48,7 +50,7 @@ def par_yields_to_spot(par_yields, maturities, coupon_frequency):
 
     # Interpolate par yields using cubic splines
     spline = CubicSpline(maturities, par_yields)
-    interpolated_par_yields = spline(all_maturities)
+    interpolated_par_yields: np.ndarray = spline(all_maturities)
 
     # Bootstrapping
     spot_rates = [interpolated_par_yields[0]]
@@ -77,3 +79,58 @@ def par_yields_to_spot(par_yields, maturities, coupon_frequency):
 
     return output
 
+#@staticmethod
+def rates_to_semiannual_yields(rates):
+    """
+    Convert annually-compounded zero rate(s) → semiannual constant-maturity par yield(s)
+
+    Input:
+        - Single float → returns only the 1-year par yield
+        - Sequence of N rates [R1, R2, ..., RN] → returns [y1, y2, ..., yN]
+        - DataFrame (row-wise) → one row of par yields per input row
+
+    You cannot get a 5-year par yield without the 5-year zero rate (and all prior ones).
+    """
+
+    # ------------------------------------------------------------------
+    # 1. Core calculation
+    # ------------------------------------------------------------------
+    def _core_calc(row):
+        row = row.values if isinstance(row, pd.Series) else np.asarray(row, dtype=float)
+        if len(row) == 0:
+            return np.nan
+
+        dfs = [1 / math.sqrt(1 + row[0]), 1 / (1 + row[0])]
+        ret = [2 * (math.sqrt(1 + row[0]) - 1)]
+        annuity = dfs[0] + dfs[1]
+
+        for i in range(1, len(row)):
+            frwd = (1 + row[i]) ** (i + 1) / (1 + row[i - 1]) ** i - 1
+            dfs.append(dfs[-1] * (1 + frwd) ** -0.5)
+            dfs.append((1 + row[i]) ** -(i + 1))
+            annuity += dfs[-1] + dfs[-2]
+            ret.append(2 * (1 - dfs[-1]) / annuity)
+
+        return pd.Series(ret, index=row.index if hasattr(row, 'index') else range(1, len(ret) + 1))
+
+    # ------------------------------------------------------------------
+    # 2. Convert everything to a pd.Series (the universal container)
+    # ------------------------------------------------------------------
+    if isinstance(rates, (list, tuple, np.ndarray)):
+        rates = pd.Series(rates)
+    elif isinstance(rates, pd.DataFrame):
+        # Apply row-wise by default (most common in yield curve tables)
+        result = rates.apply(_core_calc, axis=1)
+        result.name = "Par Yield (semi)"
+        return result
+    elif not isinstance(rates, pd.Series):
+        rates = pd.Series([float(rates)])  # single number
+
+    # If we have a single Series → run once
+    result = _core_calc(rates)
+
+    # Preserve name and index
+    if isinstance(result, pd.Series):
+        result.name = "Par Yield (semi)"
+
+    return result
