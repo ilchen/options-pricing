@@ -31,6 +31,14 @@ The repository contains the following packages:
   that validate the correctness of options pricing logic for both Black-Scholes-Merton and Binomial-Tree pricers. I test
   for the correctness of calculated greeks, the put-call parity and do many additional checks.
 
+* Various Jupyter notebooks demonstrating option pricing:
+    * `equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the S&P 500 (USD, ticker `^GSPC`)
+    * `equity-options-pricing-example.ipynb` — Pricing an American stock option on Apple (USD, ticker `AAPL`)
+    * `euro-equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the AEX (EUR, ticker `^AEX`)
+    * `euro-equity-options-pricing-example.ipynb` — Pricing an American stock option on Shell plc (EUR, ticker `SHELL.AS`)
+    * `fx-options-pricing-example.ipynb` — Pricing a European currency option on the `EURUSD` pair (USD)
+
+
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
 [ECB](https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html), and [Yahoo-Finance](https://finance.yahoo.com).
 I use the following libraries for working with these datasets:
@@ -68,7 +76,7 @@ jupyter notebook euro-equity-options-pricing-example.ipynb
 A full run of this notebook can be seen [here for Euro Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/euro-equity-options-pricing-example.ipynb).
 
 ### Pricing equity index options
-I prepared one example notebook for pricing an option in USD on SP500:
+I prepared one example notebook for pricing an option in USD on the S&P 500:
 ```commandline
 jupyter notebook equity-index-options-pricing-example.ipynb
 ```
