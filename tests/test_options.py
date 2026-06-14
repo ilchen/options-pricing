@@ -1,6 +1,6 @@
 import unittest
 from math import exp
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from dateutil.relativedelta import relativedelta
 from dateutil.relativedelta import FR
 
@@ -8,14 +8,13 @@ import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import BDay
 
-import pandas_datareader.data as web
+import pyfredapi as pf
 import pandas_market_calendars as mcal
 import yfinance as yfin
 
 import pricing.options
 from pricing import curves, options
-from volatility import volatility_trackers
-from volatility import parameter_estimators
+from volatility import volatility_trackers, parameter_estimators
 
 MSG_LONGER_DURATION_HIGHER_PRICE = 'Longer duration should lead to higher price'
 global today, curve, holidays
@@ -30,10 +29,14 @@ def setUpModule():
     today = BDay(1).rollforward(today)
 
     # Constructing the riskless yield curve based on the current fed funds rate and treasury yields
-    data = web.get_data_fred(
-        ['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30'],
-        today - BDay(3), today)
-    data.dropna(inplace=True)
+    # Requires that the FRED_API_KEY environment variable is set with the value of your FRED API key!!
+    collection = pf.series_collection.SeriesCollection(
+        series_id=['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20',
+                   'DGS30'],
+        observation_start=(today - BDay(3)).strftime('%Y-%m-%d')
+    )
+    # Convert to wide DataFrame
+    data = collection.merge_wide().set_index('date')
 
     cur_date_curve = data.index[-1].date()
 
@@ -136,7 +139,10 @@ class BaseOptionsPricingTestCase(unittest.TestCase):
         self.assertTrue(pricer.maturity_correction_coef == 1. or pricer.holidays is not None)
         if pricer.maturity_correction_coef != 1.:
             dt = pricer.riskless_yield_curve.to_datetime(pricer.T * pricer.maturity_correction_coef)
-            self.assertEqual(dt, datetime.combine(pricer.maturity_date, time()))
+            # In case 'dt' has a non-empty time component, shouldn't be more than one minute
+            expected = datetime.combine(pricer.maturity_date, time())
+            self.assertLessEqual(abs(dt - expected), timedelta(minutes=1),
+                                 f"Time difference too large: {abs(dt - expected)}")
 
 
 class NonDivPayingEquityOptionsPricingTestCase(BaseOptionsPricingTestCase):

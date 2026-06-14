@@ -42,9 +42,12 @@ The repository contains the following packages:
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
 [ECB](https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html), and [Yahoo-Finance](https://finance.yahoo.com).
 I use the following libraries for working with these datasets:
-* [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html) for FRED data
-* [sdmx](https://sdmx1.readthedocs.io/en/latest/) for the ECB data
-* [yfinance](https://pypi.org/project/yfinance/) for Yahoo-Finance data
+* **[pyfredapi](https://pyfredapi.readthedocs.io/en/latest/)** for FRED data (USD risk-free curves).  
+  **Note**: You must obtain a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) and set the environment variable `FRED_API_KEY`.  
+  I switched from [pandas-datareader](https://pydata.github.io/pandas-datareader/index.html) because FRED’s CSV endpoints became unreliable (frequent timeouts / 504 errors).
+
+* **[sdmx](https://sdmx1.readthedocs.io/en/latest/)** for the ECB data
+* **[yfinance](https://pypi.org/project/yfinance/)** for Yahoo-Finance data
 
 ## Requirements
 You'll need python3 and pip. `brew install python` will do if you are on MacOS. You can even forgo installing anything
@@ -65,20 +68,20 @@ After you clone the repo and `cd` into its directory, please run one of the belo
 ### Pricing equity options on a cash dividend paying stock
 I prepared one example notebook for pricing an option in USD on a US stock (Apple):
 ```commandline
-jupyter notebook equity-options-pricing-example.ipynb
+FRED_API_KEY="your-FRED-API-key" jupyter notebookjupyter notebook equity-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-options-pricing-example.ipynb).
 
 And another example notebook for pricing an option in Euro on a stock priced in Euro (Shell plc):
 ```commandline
-jupyter notebook euro-equity-options-pricing-example.ipynb
+FRED_API_KEY="your-FRED-API-key" jupyter notebook euro-equity-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Euro Equity Options Pricing](https://github.com/ilchen/options-pricing/blob/main/euro-equity-options-pricing-example.ipynb).
 
 ### Pricing equity index options
 I prepared one example notebook for pricing an option in USD on the S&P 500:
 ```commandline
-jupyter notebook equity-index-options-pricing-example.ipynb
+FRED_API_KEY="your-FRED-API-key" jupyter notebook equity-index-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Equity Index Options Pricing](https://github.com/ilchen/options-pricing/blob/main/equity-index-options-pricing-example.ipynb).
 
@@ -91,7 +94,7 @@ A full run of this notebook can be seen [here for Euro Equity Index Options Pric
 ### Pricing currency options
 I prepared one example notebook for pricing an option on EURUSD:
 ```commandline
-jupyter notebook fx-options-pricing-example.ipynb
+FRED_API_KEY="your-FRED-API-key" jupyter notebook fx-options-pricing-example.ipynb
 ```
 A full run of this notebook can be seen [here for Currency Options Pricing](https://github.com/ilchen/options-pricing/blob/main/fx-options-pricing-example.ipynb).
 
@@ -113,8 +116,12 @@ of the notebook and run them.
 #!git clone -l -s https://github.com/ilchen/options-pricing.git cloned-repo
 #%cd cloned-repo
 
-# Install the latest version of pandas-datareader, yfinance, and pandas-market-calendars
-# !pip install pandas-datareader -U
+# Install the latest version of pyfredapi, yfinance, and pandas-market-calendars
+# !pip install pyfredapi -U
 # !pip install sdmx1 -U
 # !pip install yfinance -U
+# import os
+# os.environ["FRED_API_KEY"] = "your_actual_key_here" # or store it in Colab Secrets (better) and obtain from there:
+## from google.colab import userdata
+## os.environ["FRED_API_KEY"] = userdata.get("FRED_API_KEY")
   ```
