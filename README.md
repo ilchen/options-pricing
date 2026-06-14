@@ -1,8 +1,9 @@
 # options-pricing
-Python code for pricing European and American options on different asset classes.
+Python code for pricing European and American options on stocks, equity indices, and FX.  
+Includes Jupyter notebooks with real-world examples using freely available public data.
 
-The repository contains the following packages:
-* `volatility.parameter_estimators` &mdash; contains classes implementing maximum likelihood methods for estimating
+## Packages
+* **`volatility.parameter_estimators`** &mdash; contains classes implementing maximum likelihood methods for estimating
    the parameters of the Exponentially Weighted Moving Average (EWMA) and GARCH(1, 1) models for tracking volatility.
    You can read about these models on the Internet or delve into John C. Hull's
    [Risk Management and Financial Institutions](http://www-2.rotman.utoronto.ca/~hull/riskman/index.html)
@@ -13,34 +14,35 @@ The repository contains the following packages:
       method whereby it sets ω based on the sample variance of price changes. Then it optimises for only two variables
       instead of three as `GARCHParameterEstimator` does. It's marginally less accurate.
 
-* `volatility.volatility_trackers` &mdash; contains classes to track past and forecast future volatilities using
+* **`volatility.volatility_trackers`** &mdash; contains classes to track past and forecast future volatilities using
   EWMA and GARCH(1, 1) models. For the purposes of pricing options GARCH(1, 1) is preferred because it supports
   volatility forecasting for future maturities by incorporating mean reversion (and volatility of equities lends itself
   to mean reversion).
 
-* `pricing.curves` &mdash; contains classes to construct yield curves and obtain discount factors as well as forward
+* **`pricing.curves`** &mdash; contains classes to construct yield curves and obtain discount factors as well as forward
   discount factors. Parallel shifts to curve points are supported as well.
 
-* `tests.test_curves` &mdash; a  set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
+* **`tests.test_curves`** &mdash; a  set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
   that validate the correctness of the discount curve logic as well as conversions from maturities expressed with
   `datetime.date` objects to maturities expressed in years and back.
 
-* `pricing.options` &mdash; contains classes implementing a Black-Scholes-Merton and Binomial-Tree pricers.
+* **`pricing.options`** &mdash; Black-Scholes-Merton (European) and Binomial Tree (American) option pricers.
 
-* `tests.test_options` &mdash; a fairly extensive set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
+* **`tests.test_options`** &mdash; a fairly extensive set of unit tests written with [Python's unittest library](https://docs.python.org/3/library/unittest.html)
   that validate the correctness of options pricing logic for both Black-Scholes-Merton and Binomial-Tree pricers. I test
   for the correctness of calculated greeks, the put-call parity and do many additional checks.
 
-* Various Jupyter notebooks demonstrating option pricing:
-    * `equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the S&P 500 (USD, ticker `^GSPC`)
-    * `equity-options-pricing-example.ipynb` — Pricing an American stock option on Apple (USD, ticker `AAPL`)
-    * `euro-equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the AEX (EUR, ticker `^AEX`)
-    * `euro-equity-options-pricing-example.ipynb` — Pricing an American stock option on Shell plc (EUR, ticker `SHELL.AS`)
-    * `fx-options-pricing-example.ipynb` — Pricing a European currency option on the `EURUSD` pair (USD)
+## Example Notebooks
+* `equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the S&P 500 (USD, ticker `^GSPC`)
+* `equity-options-pricing-example.ipynb` — Pricing an American stock option on Apple (USD, ticker `AAPL`)
+* `euro-equity-index-options-pricing-example.ipynb` — Pricing a European equity index option on the AEX (EUR, ticker `^AEX`)
+* `euro-equity-options-pricing-example.ipynb` — Pricing an American stock option on Shell plc (EUR, ticker `SHELL.AS`)
+* `fx-options-pricing-example.ipynb` — Pricing a European currency option on the `EURUSD` pair (USD)
 
-
+## Data Sources & Libraries
 I created this repository with a view to being able to utilize freely available data from [FRED](https://fred.stlouisfed.org),
 [ECB](https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html), and [Yahoo-Finance](https://finance.yahoo.com).
+
 I use the following libraries for working with these datasets:
 * **[pyfredapi](https://pyfredapi.readthedocs.io/en/latest/)** for FRED data (USD risk-free curves).  
   **Note**: You must obtain a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) and set the environment variable `FRED_API_KEY`.  
