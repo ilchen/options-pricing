@@ -45,6 +45,7 @@ I created this repository with a view to being able to utilize freely available 
 
 I use the following libraries for working with these datasets:
 * **[pandas-datareader](https://pydata.github.io/pandas-datareader/index.html)** for FRED data (USD risk-free curves)
+* **[pandas-market-calendars](https://pypi.org/project/pandas_market_calendars/)** for trading calendars per exchange
 * **[sdmx](https://sdmx1.readthedocs.io/en/latest/)** for the ECB data
 * **[yfinance](https://pypi.org/project/yfinance/)** for Yahoo-Finance data
 
@@ -115,8 +116,9 @@ of the notebook and run them.
 #!git clone -l -s https://github.com/ilchen/options-pricing.git cloned-repo
 #%cd cloned-repo
 
-# Install the latest version of pandas-datareader, yfinance, and pandas-market-calendars
+# Install the latest version of pandas-datareader, yfinance, sdmx1, and pandas-market-calendars
 # !pip install pandas-datareader -U
+# !pip pandas-market-calendars -U
 # !pip install sdmx1 -U
 # !pip install yfinance -U
   ```
