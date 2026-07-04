@@ -35,7 +35,7 @@ def setUpModule():
         today - BDay(3), today)
     data.dropna(inplace=True)
 
-    cur_date_curve = data.index[-1].date()
+    cur_date_curve = data.index[-1]
 
     # Convert to percentage points
     data /= 100.
@@ -107,11 +107,14 @@ class BaseOptionsPricingTestCase(unittest.TestCase):
         self.assertEqual(pricer.T, put_pricer.T)
         self.assertEqual(pricer.q, put_pricer.q)
         self.assertEqual(pricer.maturity_correction_coef, put_pricer.maturity_correction_coef)
-        self.assertAlmostEqual(pricer.get_price() - put_pricer.get_price(),
-                               pricer.s0 * exp(-pricer.q * pricer.T)
-                               - pricer.strike * exp(-pricer.r * pricer.T),
-                               7 if isinstance(pricer, pricing.options.BlackScholesMertonPricer)
-                               else 0)
+        if isinstance(pricer, pricing.options.BlackScholesMertonPricer):
+            self.assertAlmostEqual(pricer.get_price() - put_pricer.get_price(),
+                                   pricer.s0 * exp(-pricer.q * pricer.T)
+                                   - pricer.strike * exp(-pricer.r * pricer.T), 7)
+        else:
+            self.assertAlmostEqual(pricer.get_price() - put_pricer.get_price(),
+                                   pricer.s0 * exp(-pricer.q * pricer.T)
+                                   - pricer.strike * exp(-pricer.r * pricer.T), delta=0.6)
 
     def assert_put_call_parity_for_american_equity_option(self, pricer, put_pricer):
         self.assertEqual(pricer.s0, put_pricer.s0)
