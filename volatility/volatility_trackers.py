@@ -39,6 +39,10 @@ class VolatilityTracker:
                 raise ValueError("Neither asset_price_series nor (start, end, asset) arguments are provided")
             data = yfin.download(asset, start=start, end=end, ignore_tz=True)
             asset_prices_series = data['Adj Close']
+
+        # Getting rid of the current day's data as Adj Close may not yet be set
+        asset_prices_series = asset_prices_series.loc[asset_prices_series.notna()]
+
         # Dropping the first row as it doesn't contain a daily return value
         self.data = pd.DataFrame({self.CLOSE: asset_prices_series,
                                   self.DAILY_RETURN: asset_prices_series.pct_change(fill_method=None)},
