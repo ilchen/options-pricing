@@ -66,6 +66,8 @@ class OptionsPricer:
         # the maturity correction coefficient will be > 1 most of the time. It is needed to
         # translate from timescales implied by the option's lifetime to real ones expressed in calendar days
         # to get correct discount factors and ex-dividend dates. It's needed when pricing using Binomial trees.
+        # Multiplying a duration expressed in business days by maturity_correction_coef translates it into calendar
+        # days.
         self.maturity_correction_coef = 1. if holidays is None else curve.to_years(self.maturity_date) / self.T
         if self.T == 0.:
             self.T = 8 / (24 * (366 if curves.YieldCurve.is_leap_year(self.maturity_date.year) else 365))
@@ -321,6 +323,8 @@ class BinomialTreePricer(OptionsPricer):
                                             else max(0., self.strike - self.tree[self.steps][j][0])
         # maturity_correction_coef differs from 1. if we are pricing the option by determining its lifetime
         # expressed in years based on the number of trading days till option maturity divided by 252.
+        # Both the NPV of dividends as well as the DCF for each step are thus calculated using a calendar
+        # duration.
         for i in range(self.steps-1, -1, -1):
             npv_divs = self.get_npv_dividends(self.delta_t * i * self.maturity_correction_coef)\
                 if self.divs is not None else 0.
