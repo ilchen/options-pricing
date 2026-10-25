@@ -33,7 +33,7 @@ def setUpModule():
     data = web.get_data_fred(
         ['DFF', 'DGS1MO', 'DGS3MO', 'DGS6MO', 'DGS1', 'DGS2', 'DGS3', 'DGS5', 'DGS7', 'DGS10', 'DGS20', 'DGS30'],
         today - BDay(3), today)
-    data.dropna(inplace=True)
+    data = data.dropna()
 
     cur_date_curve = data.index[-1]
 
@@ -252,7 +252,7 @@ class EquityOptionsPricingTestCase(BaseOptionsPricingTestCase):
 
         # Unit tests must run fast, therefore creating a volatility tracker with pre-computed ω, α, and β values
         cls.vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000005857805, 0.04725, 0.93669, asset_prices)
-        cls.strike = 180.
+        cls.strike = 320.
 
         # Define upcoming dividends
         # yfinance returns the most recent ex-dividend date in the last row
@@ -386,11 +386,11 @@ class EquityIndexOptionsPricingTestCase(BaseOptionsPricingTestCase):
 
         # Unit tests must run fast, therefore creating a volatility tracker with pre-computed ω, α, and β values
         cls.vol_tracker = volatility_trackers.GARCHVolatilityTracker(.000001906502, 0.06303, 0.92557, asset_prices)
-        cls.strike = 4900.
+        cls.strike = 6500.
         cls.impl_vol = 0.20
 
         # Expected S&P 500 dividend yield
-        cls.q = .014049  # Updated for October 2023
+        cls.q = .01095  # Updated for October 2026
 
     def test_next_Mar_european_call_and_put_BS(self):
         # The 3rd Friday of next March
